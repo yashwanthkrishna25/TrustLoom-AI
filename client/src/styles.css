@@ -49,6 +49,109 @@
   --glass: rgba(255, 255, 255, 0.92);
 }
 
+/* =========================================================================
+   ROLE-BASED BESPOKE UI THEMES & ATMOSPHERES (Admin, Manager, Analyst)
+   ========================================================================= */
+
+/* 1. ADMINISTRATOR: Cyber-Titanium Command Center */
+[data-theme-role="admin"], .role-admin, body.role-admin {
+  --bg: #030611;
+  --bg-subtle: #070d1e;
+  --card: rgba(8, 14, 28, 0.88);
+  --card-hover: rgba(12, 22, 44, 0.96);
+  --a: #00f0ff;
+  --a-glow: rgba(0, 240, 255, 0.5);
+  --a-hover: #38bdf8;
+  --b: #3b82f6;
+  --b-glow: rgba(59, 130, 246, 0.4);
+  --warn: #f59e0b;
+  --bd: rgba(0, 240, 255, 0.16);
+  --bd-focus: rgba(0, 240, 255, 0.7);
+}
+
+.shell.role-admin, [data-theme-role="admin"] {
+  background-color: #030611;
+  background-image: 
+    radial-gradient(ellipse 90% 60% at 15% 10%, rgba(0, 240, 255, 0.16) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 85% 15%, rgba(59, 130, 246, 0.14) 0%, transparent 60%),
+    radial-gradient(circle at 50% 50%, rgba(245, 158, 11, 0.05) 0%, transparent 55%),
+    radial-gradient(rgba(0, 240, 255, 0.06) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 36px 36px;
+}
+
+.role-admin .side a.on {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.2) 0%, rgba(59, 130, 246, 0.22) 100%) !important;
+  border: 1px solid rgba(0, 240, 255, 0.55) !important;
+  box-shadow: 0 4px 20px -3px rgba(0, 240, 255, 0.35) !important;
+  color: #00f0ff !important;
+}
+
+/* 2. OPERATIONS MANAGER: Executive Sovereign & Risk Governance Suite */
+[data-theme-role="manager"], .role-manager, body.role-manager {
+  --bg: #040e1c;
+  --bg-subtle: #08182e;
+  --card: rgba(8, 22, 42, 0.88);
+  --card-hover: rgba(12, 32, 60, 0.96);
+  --a: #10b981;
+  --a-glow: rgba(16, 185, 129, 0.5);
+  --a-hover: #34d399;
+  --b: #0284c7;
+  --b-glow: rgba(2, 132, 199, 0.4);
+  --warn: #eab308;
+  --bd: rgba(16, 185, 129, 0.2);
+  --bd-focus: rgba(16, 185, 129, 0.7);
+}
+
+.shell.role-manager, [data-theme-role="manager"] {
+  background-color: #040e1c;
+  background-image: 
+    radial-gradient(ellipse 90% 60% at 15% 10%, rgba(16, 185, 129, 0.16) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 85% 15%, rgba(2, 132, 199, 0.16) 0%, transparent 60%),
+    radial-gradient(circle at 50% 50%, rgba(234, 179, 8, 0.05) 0%, transparent 55%),
+    radial-gradient(rgba(16, 185, 129, 0.06) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 36px 36px;
+}
+
+.role-manager .side a.on {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(2, 132, 199, 0.22) 100%) !important;
+  border: 1px solid rgba(16, 185, 129, 0.55) !important;
+  box-shadow: 0 4px 20px -3px rgba(16, 185, 129, 0.35) !important;
+  color: #34d399 !important;
+}
+
+/* 3. SECURITY ANALYST: Cyber Threat Intelligence & Neural Forensics Lab */
+[data-theme-role="analyst"], .role-analyst, body.role-analyst {
+  --bg: #03040c;
+  --bg-subtle: #08071a;
+  --card: rgba(12, 10, 28, 0.9);
+  --card-hover: rgba(20, 16, 44, 0.98);
+  --a: #c084fc;
+  --a-glow: rgba(192, 132, 252, 0.5);
+  --a-hover: #e879f9;
+  --b: #22c55e;
+  --b-glow: rgba(34, 197, 94, 0.4);
+  --bad: #f43f5e;
+  --bd: rgba(192, 132, 252, 0.22);
+  --bd-focus: rgba(192, 132, 252, 0.7);
+}
+
+.shell.role-analyst, [data-theme-role="analyst"] {
+  background-color: #03040c;
+  background-image: 
+    radial-gradient(ellipse 90% 60% at 15% 10%, rgba(192, 132, 252, 0.16) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 85% 15%, rgba(34, 197, 94, 0.14) 0%, transparent 60%),
+    radial-gradient(circle at 50% 50%, rgba(244, 63, 94, 0.06) 0%, transparent 55%),
+    radial-gradient(rgba(192, 132, 252, 0.06) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 36px 36px;
+}
+
+.role-analyst .side a.on {
+  background: linear-gradient(135deg, rgba(192, 132, 252, 0.2) 0%, rgba(34, 197, 94, 0.22) 100%) !important;
+  border: 1px solid rgba(192, 132, 252, 0.55) !important;
+  box-shadow: 0 4px 20px -3px rgba(192, 132, 252, 0.35) !important;
+  color: #c084fc !important;
+}
+
 /* Custom Sleek Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

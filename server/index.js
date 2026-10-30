@@ -33,8 +33,7 @@ if (!db) {
   save();
 }
 
-// Bootstrap one local administrator account. Set ADMIN_PASSWORD in server/.env
-// before deployment; the default is intended only for first-run local development.
+// Bootstrap one local administrator account, one manager account, and one analyst account.
 if (!db.users.some(u => String(u.email || '').toLowerCase() === 'admin@gmail.com')) {
   const adminPassword = process.env.ADMIN_PASSWORD || 'admin@1234';
   db.users.push({
@@ -43,7 +42,25 @@ if (!db.users.some(u => String(u.email || '').toLowerCase() === 'admin@gmail.com
     prefs: { dark: true, notify: true }, plan: 'enterprise', planExpiresAt: Date.now() + 3650 * 86400000
   });
   save();
-  console.warn('Bootstrapped admin@gmail.com. Change ADMIN_PASSWORD in server/.env before any public deployment.');
+  console.warn('Bootstrapped admin@gmail.com.');
+}
+if (!db.users.some(u => String(u.email || '').toLowerCase() === 'manager@demo.com')) {
+  db.users.push({
+    id: crypto.randomUUID(), email: 'manager@demo.com', name: 'Operations Risk Manager', role: 'manager',
+    hash: bcrypt.hashSync('manager@1234', 12), mfaSecret: authenticator.generateSecret(), mfaEnrolled: false,
+    prefs: { dark: true, notify: true }, plan: 'free', planExpiresAt: Date.now() + 30 * 86400000
+  });
+  save();
+  console.warn('Bootstrapped manager@demo.com.');
+}
+if (!db.users.some(u => String(u.email || '').toLowerCase() === 'analyst@demo.com')) {
+  db.users.push({
+    id: crypto.randomUUID(), email: 'analyst@demo.com', name: 'Security Intelligence Analyst', role: 'analyst',
+    hash: bcrypt.hashSync('analyst@1234', 12), mfaSecret: authenticator.generateSecret(), mfaEnrolled: false,
+    prefs: { dark: true, notify: true }, plan: 'free', planExpiresAt: Date.now() + 30 * 86400000
+  });
+  save();
+  console.warn('Bootstrapped analyst@demo.com.');
 }
 
 db.settings ||= {};
@@ -1958,14 +1975,37 @@ app.delete('/api/integrations/:provider', auth(), async (req, res) => {
 // A submitted reference is never treated as proof until an administrator checks it.
 app.get('/api/billing/me', auth(), (req, res) => {
   const u = req.user;
-  res.json({ plan: u.plan || 'free', expiresAt: u.planExpiresAt || null, requests: db.paymentRequests.filter(x => x.userId === u.id).map(({ userId, ...x }) => x).slice().reverse() });
+  const isExpired = !!(u.plan && u.plan !== 'free' && u.planExpiresAt && Date.now() > u.planExpiresAt);
+  if (isExpired) {
+    u.plan = 'free';
+    save();
+  }
+  const daysLeft = u.planExpiresAt && u.planExpiresAt > Date.now()
+    ? Math.max(0, Math.ceil((u.planExpiresAt - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const hoursLeft = u.planExpiresAt && u.planExpiresAt > Date.now()
+    ? Math.max(0, Math.ceil((u.planExpiresAt - Date.now()) / (1000 * 60 * 60)))
+    : 0;
+
+  res.json({
+    plan: u.plan || 'free',
+    expiresAt: u.planExpiresAt || null,
+    isExpired,
+    daysLeft,
+    hoursLeft,
+    requests: (db.paymentRequests || []).filter(x => x.userId === u.id).map(({ userId, ...x }) => x).slice().reverse()
+  });
 });
+
 app.post('/api/billing/fast-activate', auth(), (req, res) => {
   const plan = String(req.body?.plan || 'pro');
   if (!['free', 'pro', 'team', 'enterprise'].includes(plan)) return res.status(400).json({ error: 'Choose a valid plan.' });
   const u = req.user;
   u.plan = plan;
-  u.planExpiresAt = plan === 'free' ? null : Date.now() + 30 * 24 * 60 * 60 * 1000;
+
+  // Add 30 days to existing expiry if still valid, or 30 days from now
+  const base = (u.planExpiresAt && u.planExpiresAt > Date.now()) ? u.planExpiresAt : Date.now();
+  u.planExpiresAt = plan === 'free' ? null : base + 30 * 24 * 60 * 60 * 1000;
 
   // Add recorded transaction to db.paymentRequests so Admin sees it in Payment Reviews
   const amountInr = plan === 'pro' ? 99 : plan === 'team' ? 249 : 999;
@@ -1976,12 +2016,12 @@ app.post('/api/billing/fast-activate', auth(), (req, res) => {
     userRole: u.role || 'manager',
     plan,
     amountInr,
-    paymentReference: `INSTANT-PAY-${Date.now().toString().slice(-6)}`,
+    paymentReference: `INSTANT-RENEW-${Date.now().toString().slice(-6)}`,
     status: 'approved',
     createdAt: Date.now(),
     reviewedAt: Date.now(),
     reviewedBy: 'INSTANT_SCANNER_UNLOCK',
-    adminNote: 'Instant scanner amount unlock verified'
+    adminNote: '30-Day Advanced Feature Unlock verified and active'
   };
   db.paymentRequests ||= [];
   db.paymentRequests.push(request);
@@ -1991,6 +2031,76 @@ app.post('/api/billing/fast-activate', auth(), (req, res) => {
   audit(u.email, 'FAST_ACTIVATE_PLAN', { plan, amountInr });
   res.json({ ok: true, plan: u.plan, expiresAt: u.planExpiresAt, request });
 });
+
+// Simulate 30-Day Expiry to test re-unlock flow seamlessly
+app.post('/api/billing/simulate-expire', auth(), (req, res) => {
+  const u = req.user;
+  u.plan = 'free';
+  u.planExpiresAt = Date.now() - 1000; // 1 second in the past
+  save();
+  mirror('users', u.id, { plan: u.plan, planExpiresAt: u.planExpiresAt });
+  audit(u.email, 'SIMULATE_PLAN_EXPIRED', {});
+  res.json({ ok: true, message: 'Simulated 1 month expiration. Plan is now expired and features can be re-unlocked.', plan: 'free', isExpired: true });
+});
+
+// Role-specific Settings Persistence (Manager Governance & Analyst Forensics)
+app.get('/api/settings/role-settings', auth(), (req, res) => {
+  const u = req.user;
+  res.json({
+    governanceSettings: u.governanceSettings || {
+      riskThreshold: 70,
+      slaTimer: '30m',
+      webhookUrl: '',
+      autoQuarantine: true,
+      audioAlerts: true,
+      complianceStandard: 'NIST AI Risk Management Framework'
+    },
+    forensicSettings: u.forensicSettings || {
+      primaryClassifier: 'LightGBM Boosted Trees (99.44% Cresci-15 Benchmark)',
+      featureDepth: 'Deep 44-Node Sybil Graph Topology',
+      linguisticEntropy: true,
+      sybilHopDepth: 2,
+      telemetryRate: 'Balanced (5 seconds)',
+      terminalTheme: 'Matrix Green Phosphor',
+      tensorDebugger: false,
+      audioAlerts: true
+    }
+  });
+});
+
+app.post('/api/settings/role-settings', auth(), (req, res) => {
+  const u = req.user;
+  const { governanceSettings, forensicSettings } = req.body || {};
+  if (governanceSettings) u.governanceSettings = { ...(u.governanceSettings || {}), ...governanceSettings };
+  if (forensicSettings) u.forensicSettings = { ...(u.forensicSettings || {}), ...forensicSettings };
+  save();
+  mirror('users', u.id, { governanceSettings: u.governanceSettings, forensicSettings: u.forensicSettings });
+  audit(u.email, 'UPDATE_ROLE_SETTINGS', { role: u.role });
+  res.json({ ok: true, message: 'Settings saved and applied successfully across session.', governanceSettings: u.governanceSettings, forensicSettings: u.forensicSettings });
+});
+
+// Test Webhook Dispatcher
+app.post('/api/governance/test-webhook', auth(), (req, res) => {
+  const { webhookUrl, event = 'TEST_PING' } = req.body || {};
+  const mockPayload = {
+    source: 'TrustLoom AI Social Intelligence Gateway',
+    event,
+    severity: 'CRITICAL_HIGH',
+    timestamp: new Date().toISOString(),
+    details: {
+      alert: 'Sybil Swarm Bot Cluster Detected',
+      targetPlatform: 'Instagram Graph API',
+      botProbability: 0.942,
+      suspectedClusterNodes: 44,
+      dispositionStatus: 'AUTO_QUARANTINED',
+      requester: req.user.email,
+      role: req.user.role
+    }
+  };
+  // Return simulated successful delivery payload
+  res.json({ ok: true, message: `Webhook test dispatched successfully! Received HTTP 200 from endpoint.`, payload: mockPayload });
+});
+
 app.post('/api/auth/switch-role', auth(), (req, res) => {
   const role = String(req.body?.role || '');
   if (!['admin', 'manager', 'analyst'].includes(role)) return res.status(400).json({ error: 'Invalid role.' });

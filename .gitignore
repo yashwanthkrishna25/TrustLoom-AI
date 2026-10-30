@@ -4,6 +4,7 @@ node_modules/
 !.env.example
 server/.env
 server/data/
+data/
 server/model.json
 server/model_mlp.json
 firebase-service-account*.json

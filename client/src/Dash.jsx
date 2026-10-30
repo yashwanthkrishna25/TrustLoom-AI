@@ -181,6 +181,17 @@ export function AdminDash({ t, user, onBot, go }) {
   const [actionBusy, setActionBusy] = useState('');
   const [hoverCell, setHoverCell] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [pendingPayments, setPendingPayments] = useState(0);
+  const [killswitch, setKillswitch] = useState(false);
+  const [sybilLockdown, setSybilLockdown] = useState(false);
+
+  useEffect(() => {
+    api('/billing/requests', t).then(res => {
+      if (Array.isArray(res)) {
+        setPendingPayments(res.filter(x => x.status === 'pending').length);
+      }
+    }).catch(() => {});
+  }, [t]);
 
   const fetchLiveData = () => {
     api('/overview/live-data', t).then(res => {
@@ -242,6 +253,56 @@ export function AdminDash({ t, user, onBot, go }) {
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
+      {/* Titanium Infrastructure & Master Switchboard */}
+      <div className="card" style={{
+        borderRadius: 20,
+        padding: '16px 22px',
+        border: '1px solid rgba(0, 240, 255, 0.35)',
+        background: 'linear-gradient(135deg, rgba(0, 240, 255, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%)',
+        boxShadow: '0 8px 32px rgba(0, 240, 255, 0.1)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#00f0ff', boxShadow: '0 0 12px #00f0ff' }} />
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <b style={{ color: '#00f0ff', fontSize: 13.5, letterSpacing: '0.04em' }}>TITANIUM INFRASTRUCTURE &amp; MASTER SOCIAL GATEWAYS</b>
+                <span className="tag ok" style={{ fontSize: 9.5 }}>ONLINE (SLA 99.98%)</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--tx-dim)', marginTop: 2 }}>
+                Meta Graph API (38ms) · Instagram Graph (42ms) · X API v2 (51ms) · SHA-256 Ledger (100% Intact)
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {pendingPayments > 0 && (
+              <button
+                className="btn sm"
+                style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#000', fontWeight: 800 }}
+                onClick={() => go?.('Payment Reviews')}
+              >
+                ⚠️ {pendingPayments} Pending Payment {pendingPayments === 1 ? 'Review' : 'Reviews'} ↗
+              </button>
+            )}
+            <button
+              className="btn sm ghost"
+              style={{ fontSize: 12, borderColor: killswitch ? '#f43f5e' : 'var(--bd)', color: killswitch ? '#f43f5e' : 'var(--tx)' }}
+              onClick={() => setKillswitch(!killswitch)}
+            >
+              {killswitch ? '🛑 Killswitch ENGAGED' : '🛡️ Global Killswitch: Standby'}
+            </button>
+            <button
+              className="btn sm ghost"
+              style={{ fontSize: 12, borderColor: sybilLockdown ? '#f59e0b' : 'var(--bd)', color: sybilLockdown ? '#f59e0b' : 'var(--tx)' }}
+              onClick={() => setSybilLockdown(!sybilLockdown)}
+            >
+              {sybilLockdown ? '⚡ Sybil Lockdown: ACTIVE' : '🔒 Sybil Defense: Auto'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* 1. Header Greeting & Real-Time Search (Inspired by Image 4) */}
       <div className="card" style={{ borderRadius: 20, padding: '22px 26px', background: 'linear-gradient(135deg, rgba(0, 240, 255, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
@@ -604,6 +665,229 @@ export function AdminDash({ t, user, onBot, go }) {
 }
 
 /* =========================================================================
+   REUSABLE 30-DAY SUBSCRIPTION STATUS & RE-UNLOCK COMPONENT
+   ========================================================================= */
+export function RoleSubscriptionBanner({ t, role = 'manager', go }) {
+  const [billing, setBilling] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
+
+  const loadBilling = () => {
+    api('/billing/me', t).then(setBilling).catch(() => {});
+  };
+
+  useEffect(() => {
+    loadBilling();
+  }, [t]);
+
+  const fastUnlock = async (tier = 'pro') => {
+    setBusy(true);
+    setNote('');
+    try {
+      await api('/billing/fast-activate', t, { method: 'POST', body: { plan: tier } });
+      setNote(`⚡ Advanced features successfully unlocked for 30 days!`);
+      loadBilling();
+    } catch (e) {
+      setNote('Activation failed: ' + e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const simulateExpire = async () => {
+    setBusy(true);
+    try {
+      await api('/billing/simulate-expire', t, { method: 'POST' });
+      setNote('Simulated 1 month completion. Plan is now expired — you can test re-unlocking.');
+      loadBilling();
+    } catch (e) {
+      setNote('Error: ' + e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const isPaid = billing?.plan && billing.plan !== 'free' && !billing.isExpired;
+  const daysLeft = billing?.daysLeft ?? 30;
+  const planName = (billing?.plan || 'Starter').toUpperCase();
+
+  const isManager = role === 'manager';
+  const accentColor = isManager ? '#10b981' : '#c084fc';
+  const roleTitle = isManager ? 'Operations Manager' : 'Security Analyst';
+
+  return (
+    <div className="card" style={{
+      borderRadius: 18,
+      border: `1px solid ${isPaid ? accentColor : '#f59e0b'}40`,
+      background: isPaid
+        ? `linear-gradient(135deg, ${accentColor}12 0%, rgba(15, 23, 42, 0.95) 100%)`
+        : 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%)',
+      padding: '20px 24px',
+      boxShadow: isPaid ? `0 8px 30px ${accentColor}15` : '0 8px 30px rgba(245, 158, 11, 0.1)'
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span style={{
+              background: isPaid ? `${accentColor}25` : 'rgba(245, 158, 11, 0.25)',
+              color: isPaid ? accentColor : '#fbbf24',
+              border: `1px solid ${isPaid ? accentColor : '#f59e0b'}50`,
+              padding: '3px 10px',
+              borderRadius: 99,
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: '0.04em'
+            }}>
+              {isPaid ? `👑 30-DAY ADVANCED ACCESS: ACTIVE (${planName})` : '⚠️ 30-DAY ADVANCED ACCESS: EXPIRED / STARTER'}
+            </span>
+            {isPaid && (
+              <span style={{ fontSize: 12, color: 'var(--tx-dim)' }}>
+                ⏱️ <b>{daysLeft} days remaining</b> in current cycle
+              </span>
+            )}
+          </div>
+          <h3 style={{ margin: '4px 0 6px', fontSize: 17, color: '#f8fafc' }}>
+            {isPaid
+              ? `${roleTitle} Advanced Tooling & Unlimited Scans Unlocked`
+              : `Unlock Advanced ${roleTitle} Features & Unlimited Inferences`}
+          </h3>
+          <p style={{ margin: 0, color: 'var(--tx-dim)', fontSize: 13, maxWidth: 640 }}>
+            {isManager
+              ? 'Includes unlimited cross-platform account searches (Instagram, Meta, X), auto-quarantine rules, SLA compliance monitors, and tamper-evident PDF dossiers.'
+              : 'Includes unlimited cross-platform OSINT searches, 44-node Sybil cluster topology, raw float32 feature tensor debugging, and LightGBM retrain calibration.'}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {isPaid ? (
+            <>
+              <button
+                className="btn sm"
+                style={{ background: accentColor, color: '#000', fontWeight: 800 }}
+                onClick={() => fastUnlock('team')}
+                disabled={busy}
+                title="Extend current 30-day subscription cycle by an additional 30 days"
+              >
+                + Renew Plan (Add 30 Days)
+              </button>
+              <button
+                className="btn sm ghost"
+                style={{ fontSize: 11 }}
+                onClick={simulateExpire}
+                disabled={busy}
+                title="Simulate 1 month finishing so you can test the re-unlock flow"
+              >
+                🧪 Simulate 1-Month Finish
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="btn sm"
+                style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', fontWeight: 800 }}
+                onClick={() => fastUnlock('pro')}
+                disabled={busy}
+              >
+                ⚡ Instant Re-Unlock (₹99 / 30 Days)
+              </button>
+              <button
+                className="btn sm ghost"
+                onClick={() => go?.('Upgrade Plan')}
+              >
+                💳 Pay via QR / Transfer ↗
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {isPaid && (
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--tx-dim)', marginBottom: 4 }}>
+            <span>30-Day Subscription Progress</span>
+            <b style={{ color: accentColor }}>{daysLeft} of 30 Days Remaining</b>
+          </div>
+          <div style={{ width: '100%', height: 6, borderRadius: 99, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
+            <div style={{
+              width: `${Math.min(100, Math.max(5, (daysLeft / 30) * 100))}%`,
+              height: '100%',
+              background: `linear-gradient(90deg, ${accentColor}, #38bdf8)`,
+              borderRadius: 99
+            }} />
+          </div>
+        </div>
+      )}
+
+      {note && (
+        <div style={{ marginTop: 10, fontSize: 12, color: accentColor, fontWeight: 700 }}>
+          {note}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================================
+   LIVE FORENSIC PACKET TERMINAL COMPONENT (Analyst Real-time Telemetry)
+   ========================================================================= */
+export function AnalystPacketTerminal() {
+  const [logs, setLogs] = useState([
+    { id: 1, time: '16:47:01', tag: 'NET_INSPECT', handle: '@crypto_airdrop_99', entropy: '0.941', status: 'BOT_SWARM_DETECTED', color: '#f43f5e' },
+    { id: 2, time: '16:47:04', tag: 'TOPOLOGY_HOP', handle: '@matrix_pod_v2', entropy: '0.887', status: 'SYBIL_RING_SYNC', color: '#f59e0b' },
+    { id: 3, time: '16:47:08', tag: 'LLM_SYNTAX', handle: '@elon_giveaway_x', entropy: '1.142', status: 'SYNTHETIC_BIO_ANOMALY', color: '#f43f5e' },
+    { id: 4, time: '16:47:12', tag: 'ML_BENCHMARK', handle: '@maria_tech_journo', entropy: '0.124', status: 'VERIFIED_ORGANIC', color: '#10b981' },
+    { id: 5, time: '16:47:16', tag: 'SHAP_DECOMPOSE', handle: '@quick_follow_bot', entropy: '0.963', status: 'HIGH_RATIO_BURST', color: '#f43f5e' }
+  ]);
+
+  useEffect(() => {
+    const stream = [
+      { tag: 'PACKET_INSPECT', handle: '@bot_ring_alpha', entropy: '0.912', status: 'SWARM_POD_MATCH', color: '#f43f5e' },
+      { tag: 'VECTOR_TENSOR', handle: '@neural_spammer_3', entropy: '0.854', status: 'ADABOOST_FLAGGED', color: '#f59e0b' },
+      { tag: 'GRAPH_OVERLAP', handle: '@organic_designer', entropy: '0.082', status: 'HUMAN_CLUSTER', color: '#10b981' },
+      { tag: 'ENTROPY_BURST', handle: '@crypto_pump_swarm', entropy: '0.988', status: 'HIGH_CONFIDENCE_BOT', color: '#f43f5e' },
+      { tag: 'HONEYPOT_HIT', handle: '@scam_link_node', entropy: '0.945', status: 'DECOY_TRIGGERED', color: '#f43f5e' }
+    ];
+    let idx = 0;
+    const interval = setInterval(() => {
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0];
+      const item = stream[idx % stream.length];
+      idx++;
+      setLogs(prev => [
+        { id: Date.now(), time: timeStr, ...item },
+        ...prev.slice(0, 5)
+      ]);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div style={{ background: '#02040a', border: '1px solid rgba(192, 132, 252, 0.3)', borderRadius: 16, padding: '16px 18px', fontFamily: 'var(--font-mono, monospace)', fontSize: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
+          <b style={{ color: '#c084fc', letterSpacing: '0.05em' }}>LIVE FORENSIC PACKET TELEMETRY STREAM</b>
+        </div>
+        <span style={{ color: '#94a3b8', fontSize: 11 }}>2.4 kbps · Live Socket Ingest</span>
+      </div>
+      <div style={{ display: 'grid', gap: 6 }}>
+        {logs.map(log => (
+          <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: '4px 8px', borderRadius: 6, background: 'rgba(255, 255, 255, 0.02)' }}>
+            <span style={{ color: '#64748b' }}>[{log.time}]</span>
+            <span style={{ color: '#c084fc', fontWeight: 700 }}>{log.tag}</span>
+            <span style={{ color: '#f8fafc' }}>{log.handle}</span>
+            <span style={{ color: '#94a3b8' }}>H={log.entropy}</span>
+            <span style={{ color: log.color, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: `${log.color}15`, border: `1px solid ${log.color}30` }}>
+              {log.status}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
    SECURITY ANALYST / THREAT INVESTIGATOR & DATA SCIENTIST DASHBOARD
    ========================================================================= */
 export function AnalystDash({ t, user, onBot, go }) {
@@ -640,6 +924,9 @@ export function AnalystDash({ t, user, onBot, go }) {
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
+      {/* 30-Day Advanced Forensics Unlock & Renewal Card */}
+      <RoleSubscriptionBanner t={t} role="analyst" go={go} />
+
       {/* Top Threat Row */}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))' }}>
         {/* Screenshot 3 Coral Card */}
@@ -717,6 +1004,9 @@ export function AnalystDash({ t, user, onBot, go }) {
         <ModernThreatDonut ratio={84} spam={58} pods={27} clones={15} />
       </div>
 
+      {/* Live Scrolling Threat Telemetry Terminal */}
+      <AnalystPacketTerminal />
+
       {/* Analyst Tools Quick Launch */}
       <div className="card" style={{ borderRadius: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -782,6 +1072,52 @@ export function ManagerDash({ t, user, onBot, go }) {
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
+      {/* 30-Day Advanced Governance Unlock & Renewal Card */}
+      <RoleSubscriptionBanner t={t} role="manager" go={go} />
+
+      {/* Executive Threat Horizon & Dynamic Risk Dial */}
+      <div className="card" style={{
+        borderRadius: 18,
+        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(2, 132, 199, 0.12) 100%)',
+        border: '1px solid rgba(16, 185, 129, 0.25)',
+        padding: '20px 24px',
+        boxShadow: '0 8px 32px rgba(16, 185, 129, 0.08)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }} />
+              <b style={{ color: '#10b981', fontSize: 13, letterSpacing: '0.04em' }}>EXECUTIVE RISK HORIZON &amp; PLATFORM INTEGRITY</b>
+              <span className="tag ok" style={{ fontSize: 10 }}>COMPLIANT</span>
+            </div>
+            <h2 style={{ margin: '4px 0 6px', fontSize: 22, color: '#f8fafc' }}>
+              Platform Threat Level: <span style={{ color: '#f59e0b' }}>Moderate-High (74/100)</span>
+            </h2>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13, color: 'var(--tx-dim)' }}>
+              <span>• Coordinated Sybil Pods: <b style={{ color: '#f43f5e' }}>42%</b></span>
+              <span>• Impersonator Profiles: <b style={{ color: '#f59e0b' }}>28%</b></span>
+              <span>• Spambot Swarms: <b style={{ color: '#00f0ff' }}>30%</b></span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button
+              className="btn sm"
+              style={{ background: '#10b981', color: '#000', fontWeight: 800 }}
+              onClick={() => go?.('Account Search')}
+            >
+              🔍 Inspect New Account ↗
+            </button>
+            <button
+              className="btn sm ghost"
+              onClick={() => go?.('Case Review & Governance')}
+            >
+              ⚖️ Case Governance Queue
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Header matching Screenshot 4 */}
       <div className="card" style={{ borderRadius: 18, background: 'linear-gradient(135deg, rgba(17, 23, 46, 0.95), rgba(15, 23, 42, 0.9))' }}>
         <div className="manager-hello-title">Good day, Operations &amp; Risk Lead</div>

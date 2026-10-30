@@ -1675,6 +1675,85 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
   // Model sensitivity slider state
   const [sensitivity, setSensitivity] = useState(50);
 
+  // Manager Governance Settings
+  const [govSettings, setGovSettings] = useState({
+    riskThreshold: 70,
+    slaTimer: '30m',
+    webhookUrl: '',
+    autoQuarantine: true,
+    audioAlerts: true,
+    complianceStandard: 'NIST AI Risk Management Framework'
+  });
+
+  // Analyst Forensic Settings
+  const [forensicSettings, setForensicSettings] = useState({
+    primaryClassifier: 'LightGBM Boosted Trees (99.44% Cresci-15 Benchmark)',
+    featureDepth: 'Deep 44-Node Sybil Graph Topology',
+    linguisticEntropy: true,
+    sybilHopDepth: 2,
+    telemetryRate: 'Balanced (5 seconds)',
+    terminalTheme: 'Matrix Green Phosphor',
+    tensorDebugger: false,
+    audioAlerts: true
+  });
+
+  const [testingWebhook, setTestingWebhook] = useState(false);
+  const [savingRoleSettings, setSavingRoleSettings] = useState(false);
+
+  const loadRoleSettings = () => {
+    api('/settings/role-settings', t).then(res => {
+      if (res.governanceSettings) setGovSettings(prev => ({ ...prev, ...res.governanceSettings }));
+      if (res.forensicSettings) setForensicSettings(prev => ({ ...prev, ...res.forensicSettings }));
+    }).catch(() => {});
+  };
+
+  const saveRoleSettings = async (type) => {
+    setSavingRoleSettings(true);
+    try {
+      const payload = type === 'manager' ? { governanceSettings: govSettings } : { forensicSettings };
+      const res = await api('/settings/role-settings', t, { method: 'POST', body: payload });
+      setMsg('✅ ' + (res.message || 'Settings saved successfully!'));
+      setTimeout(() => setMsg(''), 4000);
+    } catch (e) {
+      setMsg('❌ Failed to save settings: ' + e.message);
+    } finally {
+      setSavingRoleSettings(false);
+    }
+  };
+
+  const testWebhook = async () => {
+    setTestingWebhook(true);
+    try {
+      const res = await api('/governance/test-webhook', t, { method: 'POST', body: { webhookUrl: govSettings.webhookUrl } });
+      setMsg('✅ ' + (res.message || 'Webhook verified with HTTP 200!'));
+      setTimeout(() => setMsg(''), 5000);
+    } catch (e) {
+      setMsg('❌ Webhook test failed: ' + e.message);
+    } finally {
+      setTestingWebhook(false);
+    }
+  };
+
+  const playAudioAlert = (tone = 'executive') => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = tone === 'sonar' ? 'triangle' : 'sine';
+      const freq = tone === 'sonar' ? 440 : 587.33;
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.5, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    } catch (e) {
+      console.warn('Audio play error:', e);
+    }
+  };
+
   const userPrefs = user?.prefs || { dark: true, notify: true };
 
   const sv = async p => {
@@ -1698,6 +1777,7 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
   const load = () => {
     api('/integrations', t).then(j => setIntegrations(j.integrations || [])).catch(() => { });
     loadTunnel();
+    loadRoleSettings();
   };
 
   useEffect(() => {
@@ -1760,28 +1840,6 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
       setMsg('Could not retrieve QR code: ' + e.message);
     } finally {
       setLoadingQr(false);
-    }
-  };
-
-  const playAudioAlert = () => {
-    try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.15);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.35);
-      setMsg('🔊 Audio alert chime played.');
-      setTimeout(() => setMsg(''), 2500);
-    } catch (e) { }
   };
 
   const validateAllIntegrations = async () => {
@@ -2369,48 +2427,131 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
             </div>
           </div>
 
-          <div className="card">
-            <div className="eyebrow">OPERATIONS GOVERNANCE &amp; SLA POLICIES</div>
-            <h3 style={{ margin: '4px 0 14px' }}>Case Review &amp; Alert Settings</h3>
+          <div className="card" style={{ border: '1px solid rgba(16, 185, 129, 0.3)', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.04), rgba(2, 132, 199, 0.04))' }}>
+            <div className="eyebrow" style={{ color: '#10b981' }}>TRUSTLOOM AI · RISK &amp; GOVERNANCE SUITE</div>
+            <h3 style={{ margin: '4px 0 14px' }}>Operations Risk &amp; SLA Compliance Policies</h3>
             <div style={{ display: 'grid', gap: 16 }}>
+              {/* 1. Auto-Quarantine Risk Threshold */}
               <div>
-                <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                  Risk Escalation Threshold: <b style={{ color: '#00f0ff' }}>{sensitivity}%</b>
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label style={{ fontSize: 13, fontWeight: 700 }}>
+                    Auto-Quarantine Risk Threshold: <b style={{ color: '#10b981' }}>{govSettings.riskThreshold}%</b>
+                  </label>
+                  <span className="tag ok" style={{ fontSize: 10 }}>ACTIVE</span>
+                </div>
                 <input
                   type="range"
                   min={40}
                   max={95}
-                  value={sensitivity}
-                  onChange={e => setSensitivity(+e.target.value)}
-                  style={{ width: '100%', accentColor: 'var(--a)' }}
+                  value={govSettings.riskThreshold}
+                  onChange={e => setGovSettings(prev => ({ ...prev, riskThreshold: +e.target.value }))}
+                  style={{ width: '100%', accentColor: '#10b981' }}
                 />
                 <small style={{ color: 'var(--tx-dim)', display: 'block', marginTop: 4 }}>
-                  Accounts with bot probability above {sensitivity}% trigger urgent triage notifications.
+                  Accounts with bot probability above {govSettings.riskThreshold}% are automatically quarantined to prevent network propagation.
                 </small>
               </div>
 
+              {/* 2. Auto-Quarantine Enforcement Toggle */}
               <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <b>Team Incident Acoustic Chimes</b>
-                  <div style={{ fontSize: 12, color: 'var(--tx-dim)' }}>Play real-time acoustic chime when a critical bot swarm is detected</div>
+                  <b>Automated Quarantine Enforcement</b>
+                  <div style={{ fontSize: 12, color: 'var(--tx-dim)' }}>
+                    Instantly freeze API ingestion on coordinated sybil swarm clusters
+                  </div>
+                </div>
+                <Tgl
+                  on={govSettings.autoQuarantine}
+                  set={on => setGovSettings(prev => ({ ...prev, autoQuarantine: on }))}
+                />
+              </div>
+
+              {/* 3. SLA Timer Window */}
+              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 14 }}>
+                <label style={{ fontSize: 13, fontWeight: 700, display: 'block', marginBottom: 6 }}>
+                  Incident Escalation SLA Timer Window
+                </label>
+                <select
+                  value={govSettings.slaTimer}
+                  onChange={e => setGovSettings(prev => ({ ...prev, slaTimer: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: '#071526', color: '#fff', border: '1px solid rgba(16, 185, 129, 0.3)' }}
+                >
+                  <option value="15m">15 Minutes — Critical Sybil Swarms (Fast Response)</option>
+                  <option value="30m">30 Minutes — Standard Governance Triage Window</option>
+                  <option value="1h">1 Hour — Elevated Risk Review Queue</option>
+                  <option value="4h">4 Hours — Batch Compliance Audit</option>
+                </select>
+              </div>
+
+              {/* 4. Enterprise Webhook Dispatcher */}
+              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 14 }}>
+                <label style={{ fontSize: 13, fontWeight: 700, display: 'block', marginBottom: 4 }}>
+                  Slack / Discord / SIEM Incident Webhook
+                </label>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <input
+                    type="url"
+                    placeholder="https://hooks.slack.com/services/... or Discord webhook URL"
+                    value={govSettings.webhookUrl}
+                    onChange={e => setGovSettings(prev => ({ ...prev, webhookUrl: e.target.value }))}
+                    style={{ flex: 1, minWidth: 260, fontSize: 13 }}
+                  />
+                  <button
+                    className="btn sm"
+                    style={{ background: '#10b981', color: '#000', fontWeight: 700 }}
+                    disabled={testingWebhook}
+                    onClick={testWebhook}
+                  >
+                    {testingWebhook ? 'Testing...' : '🔔 Test Ping Webhook'}
+                  </button>
+                </div>
+                <small style={{ color: 'var(--tx-dim)', display: 'block', marginTop: 4 }}>
+                  Dispatches real-time tamper-evident JSON incident alerts upon critical bot swarm detection.
+                </small>
+              </div>
+
+              {/* 5. Compliance Framework Standard */}
+              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 14 }}>
+                <label style={{ fontSize: 13, fontWeight: 700, display: 'block', marginBottom: 6 }}>
+                  Regulatory Compliance Standard
+                </label>
+                <select
+                  value={govSettings.complianceStandard}
+                  onChange={e => setGovSettings(prev => ({ ...prev, complianceStandard: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: '#071526', color: '#fff', border: '1px solid rgba(16, 185, 129, 0.3)' }}
+                >
+                  <option value="NIST AI Risk Management Framework">NIST AI Risk Management Framework (AI RMF 1.0)</option>
+                  <option value="EU AI Act High-Risk Standard">EU AI Act Synthetic Media &amp; Impersonation Standard</option>
+                  <option value="ISO/IEC 42001 AI Management">ISO/IEC 42001 Artificial Intelligence Management Standard</option>
+                  <option value="FTC Anti-Deceptive Bot Rule">FTC Social Media Transparency &amp; Anti-Impersonation</option>
+                </select>
+              </div>
+
+              {/* 6. Audio Alerts */}
+              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <b>Executive Incident Acoustic Chimes</b>
+                  <div style={{ fontSize: 12, color: 'var(--tx-dim)' }}>Auditory harmonic chime on critical risk surge</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button className="btn sm ghost" onClick={playAudioAlert}>🔊 Test Chime</button>
-                  <Tgl on={userPrefs.notify} set={on => sv({ prefs: { ...userPrefs, notify: on } })} />
+                  <button className="btn sm ghost" onClick={() => playAudioAlert('executive')}>🔊 Test Chime</button>
+                  <Tgl
+                    on={govSettings.audioAlerts}
+                    set={on => setGovSettings(prev => ({ ...prev, audioAlerts: on }))}
+                  />
                 </div>
               </div>
 
-              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 14 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-                  Slack / Discord Incident Webhook
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://hooks.slack.com/services/..."
-                  style={{ width: '100%', fontSize: 13 }}
-                  defaultValue=""
-                />
+              {/* Save Policies Button */}
+              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 16 }}>
+                <button
+                  className="btn"
+                  style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', fontWeight: 800, width: '100%' }}
+                  disabled={savingRoleSettings}
+                  onClick={() => saveRoleSettings('manager')}
+                >
+                  {savingRoleSettings ? 'Saving Policies...' : '💾 Save & Apply Governance Policies'}
+                </button>
               </div>
             </div>
           </div>
@@ -2467,45 +2608,133 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
             </div>
           </div>
 
-          <div className="card">
-            <div className="eyebrow">FORENSIC DATA SCIENCE &amp; CALIBRATION</div>
-            <h3 style={{ margin: '4px 0 14px' }}>Analyst Forensic Calibration Settings</h3>
+          <div className="card" style={{ border: '1px solid rgba(192, 132, 252, 0.3)', background: 'linear-gradient(135deg, rgba(192, 132, 252, 0.04), rgba(34, 197, 94, 0.04))' }}>
+            <div className="eyebrow" style={{ color: '#c084fc' }}>TRUSTLOOM AI · NEURAL CALIBRATION &amp; FORENSICS</div>
+            <h3 style={{ margin: '4px 0 14px' }}>Security Analyst Model Calibration Settings</h3>
             <div style={{ display: 'grid', gap: 16 }}>
+              {/* 1. Primary Forensic Classifier */}
               <div>
-                <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                  Primary Classification Classifier
+                <label style={{ fontSize: 13, fontWeight: 700, display: 'block', marginBottom: 6 }}>
+                  Primary Forensic Classification Engine
                 </label>
-                <select style={{ width: '100%', padding: '10px 12px', borderRadius: 10, background: '#080d1e', color: '#fff', border: '1px solid var(--bd)' }}>
-                  <option>LightGBM Boosted Trees (99.44% Cresci-15 Benchmark)</option>
-                  <option>AdaBoost Decision Ensemble (99.53% Cresci-17 Benchmark)</option>
-                  <option>64-32 Deep MLP Neural Network (98.9% Deep Feature Vector)</option>
-                  <option>SHAP-Weighted Heuristic Consensus</option>
+                <select
+                  value={forensicSettings.primaryClassifier}
+                  onChange={e => setForensicSettings(prev => ({ ...prev, primaryClassifier: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: '#0a091d', color: '#fff', border: '1px solid rgba(192, 132, 252, 0.3)' }}
+                >
+                  <option value="LightGBM Boosted Trees (99.44% Cresci-15 Benchmark)">LightGBM Boosted Trees (99.44% Cresci-15 Benchmark)</option>
+                  <option value="AdaBoost Decision Ensemble (99.53% Cresci-17 Benchmark)">AdaBoost Decision Ensemble (99.53% Cresci-17 Benchmark)</option>
+                  <option value="64-32 Deep MLP Neural Network (98.9% Deep Feature Vector)">64-32 Deep MLP Neural Network (98.9% Deep Feature Vector)</option>
+                  <option value="SHAP-Weighted Heuristic Consensus">SHAP-Weighted Heuristic Consensus</option>
                 </select>
               </div>
 
+              {/* 2. Feature Depth */}
               <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 14 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                  Forensic Feature Sensitivity: <b style={{ color: '#a855f7' }}>{sensitivity}%</b>
+                <label style={{ fontSize: 13, fontWeight: 700, display: 'block', marginBottom: 6 }}>
+                  Feature Vector Extraction Depth
                 </label>
-                <input
-                  type="range"
-                  min={30}
-                  max={90}
-                  value={sensitivity}
-                  onChange={e => setSensitivity(+e.target.value)}
-                  style={{ width: '100%', accentColor: 'var(--b)' }}
+                <select
+                  value={forensicSettings.featureDepth}
+                  onChange={e => setForensicSettings(prev => ({ ...prev, featureDepth: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: '#0a091d', color: '#fff', border: '1px solid rgba(192, 132, 252, 0.3)' }}
+                >
+                  <option value="Deep 44-Node Sybil Graph Topology">Deep 44-Node Sybil Graph Topology (44 Social Signals)</option>
+                  <option value="Standard 18 Social Signals">Standard 18 Social Signals (Followers, burst, entropy)</option>
+                  <option value="Fast Heuristic Behavioral Entropy">Fast Heuristic Behavioral Entropy (Ultra-High Throughput)</option>
+                </select>
+              </div>
+
+              {/* 3. Linguistic Entropy Toggle */}
+              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <b>Linguistic &amp; LLM Bio Synthesizer Detection</b>
+                  <div style={{ fontSize: 12, color: 'var(--tx-dim)' }}>
+                    Analyze bio text Shannon entropy &amp; unigram frequency to detect synthetic AI personas
+                  </div>
+                </div>
+                <Tgl
+                  on={forensicSettings.linguisticEntropy}
+                  set={on => setForensicSettings(prev => ({ ...prev, linguisticEntropy: on }))}
                 />
               </div>
 
+              {/* 4. Sybil Graph Hop Depth */}
+              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label style={{ fontSize: 13, fontWeight: 700 }}>
+                    Sybil Cluster Graph Traversal Depth: <b style={{ color: '#c084fc' }}>{forensicSettings.sybilHopDepth} Hops</b>
+                  </label>
+                  <span className="tag purple" style={{ fontSize: 10 }}>TOPOLOGY</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={4}
+                  value={forensicSettings.sybilHopDepth}
+                  onChange={e => setForensicSettings(prev => ({ ...prev, sybilHopDepth: +e.target.value }))}
+                  style={{ width: '100%', accentColor: '#c084fc' }}
+                />
+                <small style={{ color: 'var(--tx-dim)', display: 'block', marginTop: 4 }}>
+                  Traverses mutual follower networks up to {forensicSettings.sybilHopDepth} connections deep to uncover coordinated follow pods.
+                </small>
+              </div>
+
+              {/* 5. Telemetry Ingest Rate */}
+              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 14 }}>
+                <label style={{ fontSize: 13, fontWeight: 700, display: 'block', marginBottom: 6 }}>
+                  Live Threat Telemetry Stream Rate
+                </label>
+                <select
+                  value={forensicSettings.telemetryRate}
+                  onChange={e => setForensicSettings(prev => ({ ...prev, telemetryRate: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: '#0a091d', color: '#fff', border: '1px solid rgba(192, 132, 252, 0.3)' }}
+                >
+                  <option value="Ultra-Fast (2 seconds)">Ultra-Fast (2 seconds live polling)</option>
+                  <option value="Balanced (5 seconds)">Balanced (5 seconds real-time stream)</option>
+                  <option value="Batch (15 seconds)">Batch (15 seconds low-overhead)</option>
+                </select>
+              </div>
+
+              {/* 6. Raw Tensor Debugger */}
               <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <b>Forensic Incident Acoustic Chimes</b>
-                  <div style={{ fontSize: 12, color: 'var(--tx-dim)' }}>Acoustic chime alert upon detecting high-probability bot profiles</div>
+                  <b>Raw Tensor &amp; Feature Vector Debugger</b>
+                  <div style={{ fontSize: 12, color: 'var(--tx-dim)' }}>
+                    Display raw float32 numerical vector tensors in account forensic inspector
+                  </div>
+                </div>
+                <Tgl
+                  on={forensicSettings.tensorDebugger}
+                  set={on => setForensicSettings(prev => ({ ...prev, tensorDebugger: on }))}
+                />
+              </div>
+
+              {/* 7. Sonar Audio Pulse */}
+              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <b>Forensic Sonar Acoustic Pulse</b>
+                  <div style={{ fontSize: 12, color: 'var(--tx-dim)' }}>Auditory sonar ping upon identifying malicious bot swarm signatures</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button className="btn sm ghost" onClick={playAudioAlert}>🔊 Test Chime</button>
-                  <Tgl on={userPrefs.notify} set={on => sv({ prefs: { ...userPrefs, notify: on } })} />
+                  <button className="btn sm ghost" onClick={() => playAudioAlert('sonar')}>🔊 Test Sonar</button>
+                  <Tgl
+                    on={forensicSettings.audioAlerts}
+                    set={on => setForensicSettings(prev => ({ ...prev, audioAlerts: on }))}
+                  />
                 </div>
+              </div>
+
+              {/* Save Calibration Button */}
+              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 16 }}>
+                <button
+                  className="btn"
+                  style={{ background: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)', color: '#fff', fontWeight: 800, width: '100%' }}
+                  disabled={savingRoleSettings}
+                  onClick={() => saveRoleSettings('analyst')}
+                >
+                  {savingRoleSettings ? 'Saving Calibration...' : '💾 Save & Apply Neural Calibration'}
+                </button>
               </div>
             </div>
           </div>
@@ -2602,6 +2831,7 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
     </div>
   );
 }
+}
 
 /* =========================================================================
    PLANS & SUBSCRIPTION MANAGEMENT (Fast-Track Unlock + UPI Payment)
@@ -2642,6 +2872,21 @@ function Plans({ t, user, setUser, go }) {
     }
   };
 
+  const simulateExpire = async () => {
+    setBusy(true);
+    setNote('');
+    try {
+      await api('/billing/simulate-expire', t, { method: 'POST' });
+      setNote('⚠️ Simulated 1-month finish! Your 30-day plan has expired. You can now test the re-unlocking flow.');
+      if (setUser) setUser(old => ({ ...old, plan: 'free' }));
+      load();
+    } catch (e) {
+      setNote('Simulation failed: ' + e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submit = async e => {
     e.preventDefault();
     setBusy(true);
@@ -2659,32 +2904,86 @@ function Plans({ t, user, setUser, go }) {
   };
 
   const currentPlan = billing?.plan || user?.plan || 'free';
+  const isExpired = !!billing?.isExpired;
+  const isPaid = currentPlan !== 'free' && !isExpired;
+  const daysLeft = billing?.daysLeft ?? 30;
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
       {/* Current Plan Overview Card */}
-      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(0, 240, 255, 0.08), rgba(168, 85, 247, 0.12))' }}>
-        <div className="eyebrow">TRUSTLOOM SUBSCRIPTION STATUS</div>
+      <div className="card" style={{
+        background: isPaid
+          ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(0, 240, 255, 0.12) 100%)'
+          : isExpired
+          ? 'linear-gradient(135deg, rgba(244, 63, 94, 0.12) 0%, rgba(245, 158, 11, 0.12) 100%)'
+          : 'linear-gradient(135deg, rgba(0, 240, 255, 0.08) 0%, rgba(168, 85, 247, 0.12) 100%)',
+        border: `1px solid ${isPaid ? 'rgba(16, 185, 129, 0.35)' : isExpired ? 'rgba(244, 63, 94, 0.35)' : 'var(--bd)'}`
+      }}>
+        <div className="eyebrow" style={{ color: isPaid ? '#10b981' : isExpired ? '#f43f5e' : 'var(--a)' }}>
+          TRUSTLOOM SUBSCRIPTION LIFECYCLE
+        </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
           <div>
-            <h2 style={{ margin: '4px 0 8px' }}>Active Subscription: <span className="grad">{currentPlan.toUpperCase()}</span></h2>
-            <p style={{ margin: 0, color: 'var(--tx-dim)', fontSize: 14 }}>
-              Status: <b>{billing?.expiresAt ? `Valid until ${new Date(billing.expiresAt).toLocaleDateString()}` : 'Perpetual Starter Access'}</b>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span className={`tag ${isPaid ? 'ok' : isExpired ? 'bad' : 'cyan'}`}>
+                {isPaid ? 'ACTIVE 30-DAY ACCESS' : isExpired ? 'EXPIRED — RENEWAL NEEDED' : 'STARTER ACCESS'}
+              </span>
+              <h2 style={{ margin: 0, fontSize: 22 }}>
+                Current Tier: <span className="grad">{currentPlan.toUpperCase()}</span>
+              </h2>
+            </div>
+            <p style={{ margin: 0, color: 'var(--tx-dim)', fontSize: 13.5 }}>
+              {isPaid
+                ? `Active Subscription: ${daysLeft} days remaining in current 30-day billing cycle.`
+                : isExpired
+                ? 'Your 30-day access has ended. Re-unlock now to regain unlimited scans, auto-quarantine, and deep forensic models.'
+                : 'Perpetual Starter Access (Standard account searches and baseline heuristics).'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button className="btn sm success" disabled={busy} onClick={() => fastActivate('pro')}>
-              ⚡ Fast-Track Unlock Pro
-            </button>
-            <button className="btn sm purple" disabled={busy} onClick={() => fastActivate('team')}>
-              ⚡ Fast-Track Unlock Team
-            </button>
+            {isPaid ? (
+              <>
+                <button className="btn sm success" disabled={busy} onClick={() => fastActivate(currentPlan === 'team' ? 'team' : 'pro')} title="Add an extra 30 days to your current active subscription">
+                  ⚡ Add 30 Days (Renew Now)
+                </button>
+                <button className="btn sm ghost" disabled={busy} onClick={simulateExpire} title="Simulate 1 month finishing to test the expiration and re-unlock flow">
+                  🧪 Simulate 1-Month Finish
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="btn sm success" disabled={busy} onClick={() => fastActivate('pro')}>
+                  ⚡ Re-Unlock Pro (₹99 / 30 Days)
+                </button>
+                <button className="btn sm purple" disabled={busy} onClick={() => fastActivate('team')}>
+                  ⚡ Re-Unlock Team (₹249 / 30 Days)
+                </button>
+              </>
+            )}
           </div>
         </div>
+
+        {/* 30-Day Subscription Progress Bar */}
+        {isPaid && (
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--tx-dim)', marginBottom: 6 }}>
+              <span>Monthly Validity Countdown</span>
+              <b style={{ color: '#10b981' }}>{daysLeft} of 30 Days Remaining</b>
+            </div>
+            <div style={{ width: '100%', height: 8, borderRadius: 99, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
+              <div style={{
+                width: `${Math.min(100, Math.max(5, (daysLeft / 30) * 100))}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #10b981, #00f0ff)',
+                borderRadius: 99
+              }} />
+            </div>
+          </div>
+        )}
       </div>
 
       {note && (
-        <div className="card" style={{ padding: 14, color: 'var(--ok)', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)' }}>
+        <div className="card" style={{ padding: 14, color: isExpired ? '#fb7185' : 'var(--ok)', background: isExpired ? 'rgba(244,63,94,0.1)' : 'rgba(16,185,129,0.1)', border: `1px solid ${isExpired ? 'rgba(244,63,94,0.3)' : 'rgba(16,185,129,0.3)'}` }}>
           {note}
         </div>
       )}
@@ -3132,6 +3431,15 @@ export default function App() {
     document.documentElement.className = (dark ? 'dark' : 'light');
   }, [dark]);
 
+  // Set role theme on document body whenever session or role changes
+  useEffect(() => {
+    if (s?.user?.role) {
+      document.body.setAttribute('data-theme-role', s.user.role);
+    } else {
+      document.body.removeAttribute('data-theme-role');
+    }
+  }, [s?.user?.role]);
+
   // Network offline / online auto-detection
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -3311,7 +3619,7 @@ export default function App() {
   }[tab] || Home;
 
   return (
-    <div className="shell">
+    <div className={`shell role-${userRole}`} data-theme-role={userRole}>
       {/* Mobile Backdrop Overlay */}
       <div
         className={`mobile-overlay ${mobileDrawer ? 'open' : ''}`}
@@ -3441,6 +3749,48 @@ export default function App() {
 
       {/* Main Workspace */}
       <div className="main">
+        {/* Role Bespoke Cyber Atmosphere Ribbon */}
+        <div style={{
+          padding: '8px 24px',
+          background: userRole === 'admin'
+            ? 'linear-gradient(90deg, rgba(0, 240, 255, 0.12) 0%, rgba(59, 130, 246, 0.08) 50%, transparent 100%)'
+            : userRole === 'manager'
+            ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.12) 0%, rgba(2, 132, 199, 0.08) 50%, transparent 100%)'
+            : 'linear-gradient(90deg, rgba(192, 132, 252, 0.12) 0%, rgba(34, 197, 94, 0.08) 50%, transparent 100%)',
+          borderBottom: userRole === 'admin'
+            ? '1px solid rgba(0, 240, 255, 0.2)'
+            : userRole === 'manager'
+            ? '1px solid rgba(16, 185, 129, 0.2)'
+            : '1px solid rgba(192, 132, 252, 0.2)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: 11.5,
+          fontWeight: 700,
+          letterSpacing: '0.04em'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: userRole === 'admin' ? '#00f0ff' : userRole === 'manager' ? '#10b981' : '#c084fc',
+              boxShadow: `0 0 10px ${userRole === 'admin' ? '#00f0ff' : userRole === 'manager' ? '#10b981' : '#c084fc'}`
+            }} />
+            <span style={{ color: userRole === 'admin' ? '#00f0ff' : userRole === 'manager' ? '#10b981' : '#c084fc' }}>
+              {userRole === 'admin'
+                ? 'TITANIUM COMMAND MATRIX · CENTRAL SOCIAL GATEWAYS (META & X) CONNECTED'
+                : userRole === 'manager'
+                ? 'EXECUTIVE RISK & GOVERNANCE SUITE · REAL-TIME DISPOSITION & SLA ACTIVE'
+                : 'NEURAL FORENSIC LAB & THREAT RADAR · 44-NODE SYBIL MATRIX SYNCHRONIZED'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, color: 'var(--tx-dim)', fontSize: 11 }}>
+            <span>Workspace: <b style={{ color: 'var(--tx)' }}>TrustLoom AI Cloud</b></span>
+            <span>Security: <b style={{ color: '#10b981' }}>Strict Encrypted</b></span>
+          </div>
+        </div>
+
         {/* Mobile Topbar with Hamburger Toggle */}
         <div className="mobile-topbar">
           <Logo />
