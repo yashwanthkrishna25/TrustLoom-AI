@@ -1,0 +1,16 @@
+{
+  "name": "botlens-ai",
+  "private": true,
+  "scripts": {
+    "install:all": "npm i && npm i --prefix server && npm i --prefix client",
+    "dev": "concurrently -n api,web,ml -c magenta,cyan,green \"npm run dev --prefix server\" \"npm run dev --prefix client\" \"python ml/ml_service.py\"",
+    "ml": "python ml/ml_service.py",
+    "server": "npm run dev --prefix server",
+    "train": "python ml/ml_engine.py --action benchmark",
+    "build": "npm run build --prefix client",
+    "start": "npm start --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,47 @@
+TRUSTLOOM AI — WINDOWS QUICK START
+=================================
+
+1) Install Node.js LTS (includes npm): https://nodejs.org/
+2) Extract this ZIP completely.
+3) Open the extracted BotLens_AI_Complete folder.
+4) Open the folder in VS Code, then open Terminal > New Terminal.
+5) Create the local environment file:
+
+   copy server\.env.example server\.env
+
+6) Install packages (first run may take several minutes):
+
+   npm run install:all
+
+7) Build-check the frontend (optional but recommended):
+
+   npm run build
+
+8) Start the web app and API:
+
+   npm run dev
+
+9) Open this address in your browser:
+
+   http://localhost:3000
+
+Administrator login for first local run:
+   Email: admin@gmail.com
+   Password: admin@1234
+
+The first admin login requires authenticator/MFA setup. Before deploying publicly, set a strong ADMIN_PASSWORD in server/.env and change any credentials that have been exposed. Public sign-up is for Operations Manager and Security Analyst only.
+
+IMPORTANT SECURITY NOTES
+------------------------
+- Never share server/.env, API keys, Meta app secrets, X secrets, Firebase service-account files, or tokens.
+- This ZIP excludes server/.env and local encrypted database files. Configure your own credentials in server/.env; do not commit secrets or service-account files.
+- For local development, the server generates local encryption/JWT secrets if they are not configured. Keep server/data/secret.json safe once data exists; changing/removing it can make the encrypted local database unreadable.
+- Upgrade Plan is available to Product Manager and Security Analyst roles; administrators get a separate Payment Reviews screen. The included FamApp UPI QR uses manual payment-reference review: an admin must verify the actual bank/payment record before approving. The app does not independently verify static-QR payments or automatically receive UPI webhooks.
+- Instagram Login requires your own Meta developer app, approved permissions, and an exact callback URI. Meta may require an HTTPS tunnel such as ngrok for testing. Read SOCIAL_INTEGRATION_SETUP.md and README.md.
+- Analyzer results based on manually entered metrics are experimental research-model estimates, not official bot labels. The standalone Instagram API connection only returns fields allowed by the granted permissions.
+
+If install fails, check that Node.js/npm are installed, internet access is available, and run the command from the project root (the folder containing package.json).
+
+REAL DATA NOTE
+--------------
+Account Search no longer fabricates fallback profile metrics. Results require data returned by the official platform API and the permissions/tier available to your app. Instagram and Facebook APIs do not allow arbitrary private/personal-account scraping. Bot/fake classifications are estimates based only on available signals, not definitive proof.

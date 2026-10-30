@@ -1,0 +1,24 @@
+TRUSTLOOM AI - BUILD NOTES
+=========================
+
+Tooling correction included in this package:
+- The client source entry point and vite.config.js are Vite-based, so client scripts now use Vite instead of the mismatched Next.js scripts.
+- Added @vitejs/plugin-react and Vite dependencies to client/package.json.
+- Added a root `npm run build` command to build the client.
+- Updated the browser title to TrustLoom AI — Account Intelligence.
+- Removed the stale client lockfile so npm can resolve a lockfile matching the Vite package manifest on the first install.
+
+Windows setup:
+1. Extract the complete ZIP.
+2. Open PowerShell in the extracted BotLens_AI_Complete folder.
+3. Run: copy server\.env.example server\.env
+4. Run: npm run install:all
+5. Run: npm run build
+6. Run: npm run dev
+7. Open http://localhost:3000
+
+Important limitations:
+- This package contains a static UPI QR and manual payment-reference review. A submitted reference does not prove payment. Admin must verify it independently before approving a subscription.
+- Actual Meta/X account lookups require valid developer credentials, configured callback URLs, platform permissions and user authorization. Public arbitrary-account lookup is not guaranteed by these APIs.
+- The account scoring model is a research signal trained on historical Twitter datasets; it is not proof that an account is fake and must not be presented as a definitive real-world verdict.
+- Build verification could not be completed in the packaging environment because npm dependency installation did not finish within the available execution time. Run `npm run build` locally after `npm run install:all` and share any error output for targeted fixes.

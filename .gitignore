@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.*
+!.env.example
+server/.env
+server/data/
+server/model.json
+server/model_mlp.json
+firebase-service-account*.json
+*.csv
+*.csv.gz
+*.tar.gz
+*.zip
+__pycache__/
+.venv/
+dist/
+TrustLoom_AI_Complete_Upgrade/
