@@ -46,7 +46,9 @@ import {
   Bell
 } from './icons.jsx';
 
-const api = (p, t, o = {}) => fetch('/api' + p, {
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/+$/, '') : '') + '/api';
+
+const api = (p, t, o = {}) => fetch(API_BASE + p, {
   ...o,
   headers: {
     'Content-Type': 'application/json',
@@ -103,6 +105,20 @@ export default function AccountIntel({ t, onBot, go }) {
 
   useEffect(() => {
     loadIntegrations();
+    try {
+      const pendingQuery = localStorage.getItem('trustloom_pending_search');
+      if (pendingQuery) {
+        const parsed = JSON.parse(pendingQuery);
+        localStorage.removeItem('trustloom_pending_search');
+        if (parsed.username) {
+          setUsername(parsed.username);
+          if (parsed.platform) setPlatform(parsed.platform);
+          setTimeout(() => {
+            search(parsed.username, parsed.platform);
+          }, 100);
+        }
+      }
+    } catch {}
   }, [t]);
 
   // Handle Account Search

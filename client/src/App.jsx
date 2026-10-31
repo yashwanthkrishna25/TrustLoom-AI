@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
-import { AdminDash, ManagerDash, AnalystDash } from './Dash.jsx';
+import { AdminDash, ManagerDash, AnalystDash, AdvancedFeaturesSuite } from './Dash.jsx';
 import { Bulk, Reports, NetBar, cacheModel, analyzeSmart } from './Ops.jsx';
 import { Logo, Globe, Chat, Chain, MLLab, Info, DeveloperKeys, ComplianceView } from './Extra.jsx';
 import AccountIntel from './AccountIntel.jsx';
@@ -41,7 +41,9 @@ import {
   Facebook
 } from './icons.jsx';
 
-const api = (p, t, o = {}) => fetch('/api' + p, {
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/+$/, '') : '') + '/api';
+
+const api = (p, t, o = {}) => fetch(API_BASE + p, {
   ...o,
   headers: {
     'Content-Type': 'application/json',
@@ -63,15 +65,15 @@ import NotFound from './NotFound.jsx';
 const NAV = {
   admin: [
     'Home', 'Account Search', 'Connected Accounts', 'Dataset Analysis',
-    'Model Training', 'Scan History', 'Reports', 'Payment Reviews', 'Users', 'Settings'
+    'Model Training', 'Scan History', 'Reports', 'Payment Reviews', 'Users', 'Unlock Features', 'Settings'
   ],
   manager: [
     'Home', 'Account Search', 'Case Review & Governance', 'Dataset Analysis',
-    'Scan History', 'Reports', 'Upgrade Plan', 'Settings'
+    'Scan History', 'Reports', 'Unlock Features', 'Settings'
   ],
   analyst: [
     'Home', 'Account Search', 'Dataset Analysis', 'Threat Radar & ML Lab',
-    'Scan History', 'Reports', 'Upgrade Plan', 'Settings'
+    'Scan History', 'Reports', 'Unlock Features', 'Settings'
   ]
 };
 
@@ -96,6 +98,7 @@ const ICON = {
   'Users': '👥',
   'Integrations': '🔗',
   'Upgrade Plan': '✧',
+  'Unlock Features': '🔓',
   'Settings': '⚙'
 };
 
@@ -1015,15 +1018,14 @@ function Login({ onDone, onClose, initialRole = 'admin', initialMode = 'signin' 
   return (
     <motion.div className="modal" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       <motion.div
-        className="card verify-modal-card"
+        className="auth-modal-card"
         onClick={e => e.stopPropagation()}
         initial={{ y: 24, scale: 0.96 }}
         animate={{ y: 0, scale: 1 }}
         exit={{ y: 24, opacity: 0 }}
-        style={{ maxWidth: 460, padding: '26px 28px', borderRadius: 20 }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <span className="tag cyan" style={{ fontSize: 10, fontWeight: 700 }}>ZERO-TRUST IDENTITY GATEWAY</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <span className="tag cyan" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.04em' }}>ZERO-TRUST IDENTITY GATEWAY</span>
           <button className="btn ghost sm" onClick={onClose} style={{ padding: '2px 8px', fontSize: 13, border: 0 }}>✕</button>
         </div>
 
@@ -1033,7 +1035,7 @@ function Login({ onDone, onClose, initialRole = 'admin', initialMode = 'signin' 
             <button
               type="button"
               className={`role-pill-btn ${mode === 'signin' ? 'active' : ''}`}
-              style={{ flex: 1, textAlign: 'center', borderRadius: 8, padding: '7px 0', fontSize: 13, fontWeight: 700 }}
+              style={{ flex: 1, textAlign: 'center', borderRadius: 8, padding: '8px 0', fontSize: 13, fontWeight: 700 }}
               onClick={() => { setMode('signin'); setErr(''); }}
             >
               Sign In
@@ -1041,7 +1043,7 @@ function Login({ onDone, onClose, initialRole = 'admin', initialMode = 'signin' 
             <button
               type="button"
               className={`role-pill-btn ${mode === 'register' ? 'active' : ''}`}
-              style={{ flex: 1, textAlign: 'center', borderRadius: 8, padding: '7px 0', fontSize: 13, fontWeight: 700 }}
+              style={{ flex: 1, textAlign: 'center', borderRadius: 8, padding: '8px 0', fontSize: 13, fontWeight: 700 }}
               onClick={() => { setMode('register'); setErr(''); }}
             >
               Register Real Account
@@ -1051,27 +1053,19 @@ function Login({ onDone, onClose, initialRole = 'admin', initialMode = 'signin' 
 
         {/* STEP 1: SIGN IN */}
         {step === 1 && mode === 'signin' && (
-          <form onSubmit={handleSignIn}>
-            <div style={{ textAlign: 'center', marginBottom: 14 }}>
-              <h3 style={{ margin: '0 0 6px', fontSize: 20 }}>Enterprise Sign In</h3>
-              <p style={{ color: 'var(--tx-dim)', fontSize: 12.5, margin: 0 }}>
-                Enter your authorized credentials. Password is encrypted with bcrypt and requires 6-digit TOTP 2FA.
+          <form onSubmit={handleSignIn} style={{ textAlign: 'left' }}>
+            <div className="auth-header">
+              <h3>Enterprise Sign In</h3>
+              <p>
+                Select your role or enter credentials. Password is encrypted with bcrypt and verified with 6-digit TOTP 2FA.
               </p>
             </div>
 
             {/* 1-Click Role Credentials Selector */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
+            <div className="auth-role-grid">
               <button
                 type="button"
-                className="btn ghost sm"
-                style={{
-                  fontSize: 11,
-                  padding: '7px 4px',
-                  textAlign: 'center',
-                  borderColor: email === 'admin@gmail.com' ? 'var(--a)' : 'rgba(255,255,255,0.1)',
-                  background: email === 'admin@gmail.com' ? 'rgba(0,240,255,0.12)' : 'rgba(255,255,255,0.02)',
-                  color: email === 'admin@gmail.com' ? 'var(--a)' : 'var(--tx)'
-                }}
+                className={`auth-role-btn ${email === 'admin@gmail.com' ? 'active-admin' : ''}`}
                 onClick={() => {
                   setEmail('admin@gmail.com');
                   setPassword('admin@1234');
@@ -1079,20 +1073,12 @@ function Login({ onDone, onClose, initialRole = 'admin', initialMode = 'signin' 
                   setErr('');
                 }}
               >
-                <b>🛡️ Admin</b><br />
-                <span style={{ fontSize: 9.5, opacity: 0.75 }}>admin@gmail.com</span>
+                <b style={{ fontSize: 12 }}>🛡️ Admin</b>
+                <span style={{ fontSize: 10, opacity: 0.8 }}>Full System</span>
               </button>
               <button
                 type="button"
-                className="btn ghost sm"
-                style={{
-                  fontSize: 11,
-                  padding: '7px 4px',
-                  textAlign: 'center',
-                  borderColor: email === 'manager@demo.com' ? 'var(--ok)' : 'rgba(255,255,255,0.1)',
-                  background: email === 'manager@demo.com' ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.02)',
-                  color: email === 'manager@demo.com' ? 'var(--ok)' : 'var(--tx)'
-                }}
+                className={`auth-role-btn ${email === 'manager@demo.com' ? 'active-manager' : ''}`}
                 onClick={() => {
                   setEmail('manager@demo.com');
                   setPassword('manager@1234');
@@ -1100,20 +1086,12 @@ function Login({ onDone, onClose, initialRole = 'admin', initialMode = 'signin' 
                   setErr('');
                 }}
               >
-                <b>⚖️ Manager</b><br />
-                <span style={{ fontSize: 9.5, opacity: 0.75 }}>manager@demo.com</span>
+                <b style={{ fontSize: 12 }}>⚖️ Manager</b>
+                <span style={{ fontSize: 10, opacity: 0.8 }}>Governance</span>
               </button>
               <button
                 type="button"
-                className="btn ghost sm"
-                style={{
-                  fontSize: 11,
-                  padding: '7px 4px',
-                  textAlign: 'center',
-                  borderColor: email === 'analyst@demo.com' ? '#a855f7' : 'rgba(255,255,255,0.1)',
-                  background: email === 'analyst@demo.com' ? 'rgba(168,85,247,0.12)' : 'rgba(255,255,255,0.02)',
-                  color: email === 'analyst@demo.com' ? '#c084fc' : 'var(--tx)'
-                }}
+                className={`auth-role-btn ${email === 'analyst@demo.com' ? 'active-analyst' : ''}`}
                 onClick={() => {
                   setEmail('analyst@demo.com');
                   setPassword('analyst@1234');
@@ -1121,42 +1099,40 @@ function Login({ onDone, onClose, initialRole = 'admin', initialMode = 'signin' 
                   setErr('');
                 }}
               >
-                <b>🔍 Analyst</b><br />
-                <span style={{ fontSize: 9.5, opacity: 0.75 }}>analyst@demo.com</span>
+                <b style={{ fontSize: 12 }}>🔍 Analyst</b>
+                <span style={{ fontSize: 10, opacity: 0.8 }}>Threat Radar</span>
               </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1', display: 'block', marginBottom: 4 }}>Work Email</label>
+                <label className="auth-label">Work Email</label>
                 <input
                   type="email"
-                  className="verify-input-field"
-                  placeholder="analyst@organization.com"
+                  className="auth-input"
+                  placeholder="name@organization.com"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  style={{ width: '100%', fontSize: 14, padding: '10px 12px', textAlign: 'left', letterSpacing: 'normal' }}
                   autoFocus
                   required
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1', display: 'block', marginBottom: 4 }}>Password</label>
+                <label className="auth-label">Password</label>
                 <input
                   type="password"
-                  className="verify-input-field"
+                  className="auth-input"
                   placeholder="••••••••••••"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  style={{ width: '100%', fontSize: 14, padding: '10px 12px', textAlign: 'left', letterSpacing: 'normal' }}
                   required
                 />
               </div>
             </div>
 
             {err && (
-              <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.3)', color: '#fb7185', fontSize: 12, lineHeight: 1.4, textAlign: 'center' }}>
+              <div className="verify-err-msg">
                 {err}
               </div>
             )}
@@ -1165,7 +1141,7 @@ function Login({ onDone, onClose, initialRole = 'admin', initialMode = 'signin' 
               type="submit"
               className="btn"
               disabled={ld}
-              style={{ width: '100%', marginTop: 18, height: 44, fontSize: 14, fontWeight: 700 }}
+              style={{ width: '100%', marginTop: 20, height: 44, fontSize: 14, fontWeight: 700 }}
             >
               {ld ? 'Verifying Credentials...' : 'Continue to Authenticator 2FA ↗'}
             </button>
@@ -1174,61 +1150,59 @@ function Login({ onDone, onClose, initialRole = 'admin', initialMode = 'signin' 
 
         {/* STEP 1: REGISTER */}
         {step === 1 && mode === 'register' && (
-          <form onSubmit={handleRegister}>
-            <div style={{ textAlign: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: '0 0 6px', fontSize: 20 }}>Create Production Identity</h3>
-              <p style={{ color: 'var(--tx-dim)', fontSize: 12.5, margin: 0 }}>
-                Provision a real user record in the AES-256-GCM encrypted database.
+          <form onSubmit={handleRegister} style={{ textAlign: 'left' }}>
+            <div className="auth-header">
+              <h3>Create Production Identity</h3>
+              <p>
+                Provision a verified user record in the AES-256-GCM encrypted database.
               </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1', display: 'block', marginBottom: 4 }}>Full Name</label>
+                <label className="auth-label">Full Name</label>
                 <input
                   type="text"
-                  className="verify-input-field"
+                  className="auth-input"
                   placeholder="e.g. Yashwanth Krishna"
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  style={{ width: '100%', fontSize: 14, padding: '10px 12px', textAlign: 'left', letterSpacing: 'normal' }}
                   autoFocus
                   required
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1', display: 'block', marginBottom: 4 }}>Work Email</label>
+                <label className="auth-label">Work Email</label>
                 <input
                   type="email"
-                  className="verify-input-field"
+                  className="auth-input"
                   placeholder="name@organization.com"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  style={{ width: '100%', fontSize: 14, padding: '10px 12px', textAlign: 'left', letterSpacing: 'normal' }}
                   required
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1', display: 'block', marginBottom: 4 }}>Password (min 8 chars)</label>
+                <label className="auth-label">Password (min 8 chars)</label>
                 <input
                   type="password"
-                  className="verify-input-field"
+                  className="auth-input"
                   placeholder="At least 8 characters"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  style={{ width: '100%', fontSize: 14, padding: '10px 12px', textAlign: 'left', letterSpacing: 'normal' }}
                   required
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1', display: 'block', marginBottom: 4 }}>Platform Member Role</label>
+                <label className="auth-label">Platform Member Role</label>
                 <select
                   value={role === 'admin' ? 'manager' : role}
                   onChange={e => setRole(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, background: '#0a0d18', color: '#fff', border: '1px solid var(--bd)', fontSize: 13 }}
+                  className="auth-input"
+                  style={{ cursor: 'pointer' }}
                 >
                   <option value="manager">Operations Manager (Operational Governance &amp; Case Review)</option>
                   <option value="analyst">Security Analyst (Threat Intelligence &amp; Deep Forensics)</option>
@@ -1240,7 +1214,7 @@ function Login({ onDone, onClose, initialRole = 'admin', initialMode = 'signin' 
             </div>
 
             {err && (
-              <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.3)', color: '#fb7185', fontSize: 12, lineHeight: 1.4, textAlign: 'center' }}>
+              <div className="verify-err-msg">
                 {err}
               </div>
             )}
@@ -1249,7 +1223,7 @@ function Login({ onDone, onClose, initialRole = 'admin', initialMode = 'signin' 
               type="submit"
               className="btn"
               disabled={ld}
-              style={{ width: '100%', marginTop: 18, height: 44, fontSize: 14, fontWeight: 700, background: 'linear-gradient(90deg, #00f0ff, #a855f7)', color: '#000' }}
+              style={{ width: '100%', marginTop: 20, height: 44, fontSize: 14, fontWeight: 700, background: 'linear-gradient(90deg, #00f0ff, #a855f7)', color: '#000' }}
             >
               {ld ? 'Creating User Identity...' : 'Register &amp; Setup Authenticator ↗'}
             </button>
@@ -1544,21 +1518,28 @@ function Users({ t }) {
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'analyst' });
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
 
-  const load = () => api('/users', t).then(setU).catch(() => setMsg('Could not load users.'));
+  const load = () => api('/users', t).then(setU).catch(e => setMsg(e.message || 'Could not load users.'));
   useEffect(() => { load(); }, [t]);
 
   const create = async e => {
     e.preventDefault();
+    if (form.password.length < 10) {
+      setMsg('❌ Password must be at least 10 characters.');
+      return;
+    }
     setBusy(true);
     setMsg('');
     try {
       await api('/users', t, { method: 'POST', body: form });
       setForm({ name: '', email: '', password: '', role: 'analyst' });
-      setMsg('User created successfully. MFA enforced upon first login.');
+      setMsg('✅ User account created successfully! MFA pairing will be prompted upon first login.');
       await load();
+      setTimeout(() => setMsg(''), 5000);
     } catch (err) {
-      setMsg(err.message || 'Could not create user.');
+      setMsg('❌ ' + (err.message || 'Could not create user.'));
     } finally {
       setBusy(false);
     }
@@ -1568,56 +1549,127 @@ function Users({ t }) {
     try {
       await api('/users/' + id + '/role', t, { method: 'PATCH', body: { role } });
       await load();
-      setMsg('Role updated.');
-    } catch {
-      setMsg('Role update failed.');
+      setMsg('✅ User role successfully updated to ' + role.toUpperCase());
+      setTimeout(() => setMsg(''), 4000);
+    } catch (err) {
+      setMsg('❌ ' + (err.message || 'Role update failed.'));
     }
   };
 
+  const adminCount = u.filter(x => x.role === 'admin').length;
+  const managerCount = u.filter(x => x.role === 'manager').length;
+  const analystCount = u.filter(x => x.role === 'analyst').length;
+
+  const filteredUsers = u.filter(x => {
+    if (filter !== 'all' && x.role !== filter) return false;
+    if (search && !x.name?.toLowerCase().includes(search.toLowerCase()) && !x.email?.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
   return (
     <div style={{ display: 'grid', gap: 20 }}>
-      <form className="card" onSubmit={create} style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+      {/* Role Breakdown KPIs */}
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+        <div className="card" style={{ padding: '16px 20px', borderRadius: 16 }}>
+          <small style={{ color: 'var(--tx-dim)', fontWeight: 600 }}>TOTAL ACCOUNTS</small>
+          <h2 style={{ color: '#00f0ff', margin: '6px 0 2px', fontSize: 28 }}>{u.length}</h2>
+          <small style={{ color: 'var(--tx-dim)' }}>Active enterprise team</small>
+        </div>
+        <div className="card" style={{ padding: '16px 20px', borderRadius: 16 }}>
+          <small style={{ color: 'var(--tx-dim)', fontWeight: 600 }}>ADMINISTRATORS</small>
+          <h2 style={{ color: '#f59e0b', margin: '6px 0 2px', fontSize: 28 }}>{adminCount}</h2>
+          <small style={{ color: 'var(--tx-dim)' }}>Full matrix governance</small>
+        </div>
+        <div className="card" style={{ padding: '16px 20px', borderRadius: 16 }}>
+          <small style={{ color: 'var(--tx-dim)', fontWeight: 600 }}>OPERATIONS MANAGERS</small>
+          <h2 style={{ color: '#10b981', margin: '6px 0 2px', fontSize: 28 }}>{managerCount}</h2>
+          <small style={{ color: 'var(--tx-dim)' }}>Case triage &amp; SLA supervisors</small>
+        </div>
+        <div className="card" style={{ padding: '16px 20px', borderRadius: 16 }}>
+          <small style={{ color: 'var(--tx-dim)', fontWeight: 600 }}>SECURITY ANALYSTS</small>
+          <h2 style={{ color: '#a855f7', margin: '6px 0 2px', fontSize: 28 }}>{analystCount}</h2>
+          <small style={{ color: 'var(--tx-dim)' }}>Threat radar &amp; ML Lab leads</small>
+        </div>
+      </div>
+
+      {/* Account Creation Form */}
+      <form className="card" onSubmit={create} style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', border: '1.5px solid rgba(0, 240, 255, 0.25)' }}>
         <div style={{ gridColumn: '1 / -1' }}>
-          <h3 style={{ margin: '0 0 4px' }}>Create User Account</h3>
+          <div className="eyebrow" style={{ color: '#00f0ff' }}>TEAM ROSTER PROVISIONING</div>
+          <h3 style={{ margin: '2px 0 4px' }}>Create Team Member Account</h3>
           <small style={{ color: 'var(--tx-dim)' }}>New users will configure mandatory TOTP authenticator MFA upon first sign-in.</small>
         </div>
-        <label><small>Full Name</small><input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>
-        <label><small>Email Address</small><input required type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></label>
-        <label><small>Temporary Password</small><input required minLength={10} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></label>
+        <label><small>Full Name</small><input required placeholder="e.g. Sarah Connor" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>
+        <label><small>Email Address</small><input required placeholder="e.g. sarah@cyberdyne.io" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></label>
+        <label><small>Password (min 10 chars)</small><input required minLength={10} placeholder="Minimum 10 characters" type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></label>
         <label><small>Assigned Role</small>
           <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-            <option value="admin">Administrator</option>
-            <option value="manager">Operations Manager</option>
-            <option value="analyst">Security Analyst</option>
+            <option value="admin">Administrator (Full Access)</option>
+            <option value="manager">Operations Manager (Risk &amp; SLA)</option>
+            <option value="analyst">Security Analyst (ML &amp; Forensics)</option>
           </select>
         </label>
         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-          <button className="btn" style={{ width: '100%' }} disabled={busy} type="submit">
-            {busy ? 'Creating...' : '+ Create Account'}
+          <button className="btn" style={{ width: '100%', background: '#00f0ff', color: '#000', fontWeight: 800 }} disabled={busy} type="submit">
+            {busy ? 'Creating Account...' : '+ Provision Account'}
           </button>
         </div>
-        {msg && <small style={{ gridColumn: '1 / -1', color: 'var(--a)' }}>{msg}</small>}
+        {msg && <div style={{ gridColumn: '1 / -1', fontSize: 13, fontWeight: 700, color: msg.startsWith('✅') ? 'var(--ok)' : 'var(--bad)' }}>{msg}</div>}
       </form>
 
-      <div className="grid">
-        {u.map(x => (
-          <div key={x.id} className="card hv">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="av">{(x.name || '?')[0]}</div>
-              <span className="tag cyan">{x.role.toUpperCase()}</span>
-            </div>
-            <h3 style={{ margin: '10px 0 2px' }}>{x.name}</h3>
-            <small style={{ color: 'var(--tx-dim)' }}>{x.email}</small>
-            <div style={{ marginTop: 14 }}>
-              <label><small>Modify Access Role</small></label>
-              <select value={x.role} onChange={e => changeRole(x.id, e.target.value)}>
-                <option value="admin">Administrator</option>
-                <option value="manager">Operations Manager</option>
-                <option value="analyst">Security Analyst</option>
-              </select>
+      {/* User Directory with Search and Filter */}
+      <div className="card">
+        <div className="top" style={{ marginBottom: 14 }}>
+          <div>
+            <b>Enterprise Access Roster ({filteredUsers.length})</b>
+            <div style={{ fontSize: 12, color: 'var(--tx-dim)' }}>Manage authenticated team member permissions and role assignments</div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              placeholder="Search user or email..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{ fontSize: 12, padding: '6px 12px', minWidth: 180 }}
+            />
+            <div className="seg">
+              {['all', 'admin', 'manager', 'analyst'].map(r => (
+                <button key={r} className={filter === r ? 'on' : ''} onClick={() => setFilter(r)}>
+                  {r.toUpperCase()}
+                </button>
+              ))}
             </div>
           </div>
-        ))}
+        </div>
+
+        <div className="grid">
+          {filteredUsers.map(x => (
+            <div key={x.id} className="card hv" style={{ border: '1px solid var(--bd)', borderRadius: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div className="av" style={{ background: x.role === 'admin' ? 'linear-gradient(135deg, #00f0ff, #3b82f6)' : x.role === 'manager' ? 'linear-gradient(135deg, #10b981, #06b6d4)' : 'linear-gradient(135deg, #a855f7, #ec4899)' }}>
+                  {(x.name || '?')[0].toUpperCase()}
+                </div>
+                <span className={`tag ${x.role === 'admin' ? 'cyan' : x.role === 'manager' ? 'ok' : 'purple'}`}>
+                  {x.role.toUpperCase()}
+                </span>
+              </div>
+              <h3 style={{ margin: '10px 0 2px', fontSize: 16 }}>{x.name}</h3>
+              <small style={{ color: 'var(--tx-dim)', display: 'block', wordBreak: 'break-all' }}>{x.email}</small>
+              <div style={{ marginTop: 14 }}>
+                <label><small>Modify Access Role</small></label>
+                <select value={x.role} onChange={e => changeRole(x.id, e.target.value)} style={{ width: '100%', marginTop: 4, fontSize: 12.5 }}>
+                  <option value="admin">Administrator</option>
+                  <option value="manager">Operations Manager</option>
+                  <option value="analyst">Security Analyst</option>
+                </select>
+              </div>
+            </div>
+          ))}
+          {filteredUsers.length === 0 && (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 32, color: 'var(--tx-dim)' }}>
+              No users match the search filter.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1627,7 +1679,13 @@ function Users({ t }) {
    REAL SOCIAL PLATFORM CONNECTIONS & COMPLETE SETTINGS CONTROL CENTER
    ========================================================================= */
 function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRole, go }) {
-  const [n, setN] = useState(user.name);
+  const activeUser = user || { role: 'analyst', name: 'Security Analyst', email: 'analyst@demo.com', plan: 'free' };
+  const [n, setN] = useState(activeUser.name || '');
+  const [currPass, setCurrPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [passBusy, setPassBusy] = useState(false);
+  const [passMsg, setPassMsg] = useState('');
+  const [nameBusy, setNameBusy] = useState(false);
   const [integrations, setIntegrations] = useState([]);
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState('');
@@ -1637,6 +1695,10 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
   const [tokenInput, setTokenInput] = useState('');
   const [tokenBusy, setTokenBusy] = useState(false);
   const [tokenErr, setTokenErr] = useState('');
+
+  useEffect(() => {
+    if (user?.name) setN(user.name);
+  }, [user?.name]);
 
   const submitTokenConnect = async () => {
     if (!tokenInput.trim()) {
@@ -1767,6 +1829,46 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
     }
   };
 
+  const saveProfile = async e => {
+    e?.preventDefault();
+    if (!n.trim()) return;
+    setNameBusy(true);
+    try {
+      const updated = await api('/me', t, { method: 'PATCH', body: { name: n.trim() } });
+      setUser(updated);
+      setMsg('✅ Profile display name updated successfully across session.');
+      setTimeout(() => setMsg(''), 4000);
+    } catch (err) {
+      setMsg('❌ Failed to update profile: ' + (err.message || 'Server error'));
+    } finally {
+      setNameBusy(false);
+    }
+  };
+
+  const changePassword = async e => {
+    e?.preventDefault();
+    if (!newPass || newPass.length < 10) {
+      setPassMsg('❌ New password must be at least 10 characters.');
+      return;
+    }
+    setPassBusy(true);
+    setPassMsg('');
+    try {
+      const res = await api('/me/password', t, {
+        method: 'POST',
+        body: { currentPassword: currPass, newPassword: newPass }
+      });
+      setPassMsg('✅ ' + (res.message || 'Password successfully updated!'));
+      setCurrPass('');
+      setNewPass('');
+      setTimeout(() => setPassMsg(''), 5000);
+    } catch (err) {
+      setPassMsg('❌ ' + (err.message || 'Failed to update password.'));
+    } finally {
+      setPassBusy(false);
+    }
+  };
+
   const loadTunnel = () => {
     api('/settings/tunnel', t).then(res => {
       setTunnelInfo(res);
@@ -1840,6 +1942,7 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
       setMsg('Could not retrieve QR code: ' + e.message);
     } finally {
       setLoadingQr(false);
+    }
   };
 
   const validateAllIntegrations = async () => {
@@ -1942,7 +2045,7 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
             <div className="eyebrow">ACCESS CONTROL &amp; RBAC</div>
             <h3 style={{ margin: '4px 0 2px', fontSize: 18 }}>Role Switcher &amp; Workspace Context</h3>
             <p style={{ color: 'var(--tx-dim)', fontSize: 13, margin: 0 }}>
-              Current Active Role: <b style={{ color: '#00f0ff' }}>{(user.role || 'admin').toUpperCase()}</b> · Logged in as <b>{user.name}</b> ({user.email})
+              Current Active Role: <b style={{ color: '#00f0ff' }}>{(activeUser.role || 'admin').toUpperCase()}</b> · Logged in as <b>{activeUser.name || 'User'}</b> ({activeUser.email || 'user@demo.com'})
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1953,8 +2056,8 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
             ].map(r => (
               <button
                 key={r.id}
-                className={`btn sm ${user.role === r.id ? '' : 'ghost'}`}
-                style={user.role === r.id ? { background: '#00f0ff', color: '#000', fontWeight: 700 } : {}}
+                className={`btn sm ${activeUser.role === r.id ? '' : 'ghost'}`}
+                style={activeUser.role === r.id ? { background: '#00f0ff', color: '#000', fontWeight: 700 } : {}}
                 onClick={() => switchRole(r.id)}
                 title={r.desc}
               >
@@ -1965,8 +2068,204 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
         </div>
       </div>
 
+      {/* 2. User Account, Profile & Session Security Card (Active for All 3 Logins) */}
+      <div className="card" style={{
+        border: '1.5px solid rgba(0, 240, 255, 0.25)',
+        background: 'linear-gradient(135deg, rgba(7, 9, 19, 0.95), rgba(13, 18, 43, 0.95))',
+        borderRadius: 18,
+        boxShadow: '0 8px 32px rgba(0, 240, 255, 0.08)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 14, marginBottom: 18 }}>
+          <div>
+            <div className="eyebrow" style={{ color: '#00f0ff' }}>AUTHENTICATED SESSION &amp; IDENTITY PROFILE</div>
+            <h3 style={{ margin: '4px 0 6px', fontSize: 18 }}>Account Profile &amp; Cryptographic Security</h3>
+            <p style={{ color: 'var(--tx-dim)', fontSize: 13, margin: 0 }}>
+              Manage your authenticated session credentials, display identity, and security tokens across the TrustLoom network.
+            </p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 14px',
+              borderRadius: 99,
+              background: 'rgba(16, 185, 129, 0.15)',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              color: '#10b981',
+              fontSize: 12,
+              fontWeight: 700
+            }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+              JWT Session Active · 256-Bit Encrypted
+            </span>
+            <button
+              className="btn sm"
+              style={{ background: 'linear-gradient(135deg, #00f0ff, #3b82f6)', color: '#000', fontWeight: 800 }}
+              onClick={openQrModal}
+              disabled={loadingQr}
+            >
+              {loadingQr ? 'Generating QR...' : '📱 2FA TOTP QR'}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 16 }}>
+          {/* Identity & Display Name Form */}
+          <form onSubmit={saveProfile} style={{ background: 'rgba(255, 255, 255, 0.03)', padding: 18, borderRadius: 14, border: '1px solid var(--bd)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                background: user?.role === 'admin' ? 'linear-gradient(135deg, #00f0ff, #3b82f6)' : user?.role === 'manager' ? 'linear-gradient(135deg, #10b981, #06b6d4)' : 'linear-gradient(135deg, #a855f7, #ec4899)',
+                color: user?.role === 'admin' ? '#000' : '#fff',
+                fontSize: 16,
+                fontWeight: 900,
+                display: 'grid',
+                placeItems: 'center'
+              }}>
+                {(user?.name || 'U').charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <b style={{ fontSize: 15 }}>{user?.name || 'User Profile'}</b>
+                <div style={{ color: 'var(--tx-dim)', fontSize: 12 }}>{user?.email}</div>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, display: 'block', marginBottom: 4 }}>Full Display Name</label>
+              <input
+                value={n}
+                onChange={e => setN(e.target.value)}
+                placeholder="Enter your full name"
+                required
+                style={{ width: '100%', fontSize: 13 }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, display: 'block', marginBottom: 4 }}>Account Email Address</label>
+              <input
+                value={user?.email || ''}
+                disabled
+                style={{ width: '100%', fontSize: 13, opacity: 0.7, background: 'rgba(0,0,0,0.3)', cursor: 'not-allowed' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, display: 'block', marginBottom: 4 }}>Assigned Role</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="tag cyan" style={{ textTransform: 'uppercase', fontWeight: 800 }}>{user?.role || 'user'}</span>
+                <span style={{ fontSize: 12, color: 'var(--tx-dim)' }}>Use Role Switcher above to test other views</span>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="btn sm"
+              style={{ marginTop: 4, background: '#00f0ff', color: '#000', fontWeight: 700 }}
+              disabled={nameBusy || n === user?.name}
+            >
+              {nameBusy ? 'Saving...' : '💾 Save Display Name'}
+            </button>
+          </form>
+
+          {/* Password Change Form */}
+          <form onSubmit={changePassword} style={{ background: 'rgba(255, 255, 255, 0.03)', padding: 18, borderRadius: 14, border: '1px solid var(--bd)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <b style={{ fontSize: 15, display: 'block' }}>Update Account Password</b>
+              <small style={{ color: 'var(--tx-dim)' }}>Enforce credential security (minimum 10 characters)</small>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, display: 'block', marginBottom: 4 }}>Current Password</label>
+              <input
+                type="password"
+                value={currPass}
+                onChange={e => setCurrPass(e.target.value)}
+                placeholder="Enter current password"
+                required
+                style={{ width: '100%', fontSize: 13 }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, display: 'block', marginBottom: 4 }}>New Password (min 10 chars)</label>
+              <input
+                type="password"
+                value={newPass}
+                onChange={e => setNewPass(e.target.value)}
+                placeholder="Enter strong new password"
+                minLength={10}
+                required
+                style={{ width: '100%', fontSize: 13 }}
+              />
+            </div>
+
+            {passMsg && (
+              <div style={{ fontSize: 12, fontWeight: 600, color: passMsg.startsWith('✅') ? 'var(--ok)' : 'var(--bad)' }}>
+                {passMsg}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="btn sm"
+              style={{ marginTop: 4, background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontWeight: 700 }}
+              disabled={passBusy || !currPass || !newPass}
+            >
+              {passBusy ? 'Updating...' : '🔒 Update Account Password'}
+            </button>
+          </form>
+
+          {/* Session Preferences & UI Controls */}
+          <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: 18, borderRadius: 14, border: '1px solid var(--bd)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <b style={{ fontSize: 15, display: 'block' }}>Workspace Preferences</b>
+              <small style={{ color: 'var(--tx-dim)' }}>Session display theme and threat acoustic alerts</small>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <b style={{ fontSize: 13 }}>Dark Cyberpunk Atmosphere</b>
+                <div style={{ fontSize: 11.5, color: 'var(--tx-dim)' }}>Obsidian backdrop with neon cyan and magenta accents</div>
+              </div>
+              <Tgl
+                on={dark}
+                set={v => setDark(v)}
+              />
+            </div>
+
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <b style={{ fontSize: 13 }}>Real-Time Bot Alerts</b>
+                <div style={{ fontSize: 11.5, color: 'var(--tx-dim)' }}>Floating notification alerts on malicious bot swarm detection</div>
+              </div>
+              <Tgl
+                on={userPrefs.notify}
+                set={v => sv({ prefs: { ...userPrefs, notify: v } })}
+              />
+            </div>
+
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+              <div style={{ fontSize: 12, color: 'var(--tx-dim)', marginBottom: 6 }}>
+                Active Plan: <b style={{ color: '#00f0ff' }}>{(user?.plan || 'Starter').toUpperCase()}</b>
+              </div>
+              <button
+                className="btn sm"
+                style={{ width: '100%', background: 'linear-gradient(90deg, #ff2e63, #f43f5e)', color: '#fff', fontWeight: 800 }}
+                onClick={() => go?.('Upgrade Plan')}
+              >
+                ✧ Upgrade / Manage 30-Day Plan ↗
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Role-Based Integrations & Governance Settings */}
-      {user.role === 'admin' ? (
+      {activeUser.role === 'admin' ? (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         {/* Dynamic Tunnel / Ngrok Manager */}
         <div className="card" style={{ border: '1px solid rgba(0, 240, 255, 0.25)', background: 'linear-gradient(135deg, rgba(0, 240, 255, 0.04), rgba(168, 85, 247, 0.04))' }}>
@@ -2375,7 +2674,7 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
           </div>
         </div>
       </div>
-      ) : user.role === 'manager' ? (
+      ) : activeUser.role === 'manager' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div className="card" style={{ border: '1px solid rgba(16, 185, 129, 0.3)', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(0, 240, 255, 0.05))' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 14 }}>
@@ -2805,7 +3104,7 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
             </div>
             <h3 style={{ margin: '0 0 6px' }}>Scan with Phone Authenticator</h3>
             <p style={{ color: 'var(--tx-dim)', fontSize: 12, margin: '0 0 16px' }}>
-              Pair your phone Google Authenticator, Microsoft Authenticator, or 2FAS with <b>{user.email}</b>
+              Pair your phone Google Authenticator, Microsoft Authenticator, or 2FAS with <b>{activeUser.email}</b>
             </p>
             {qrData.qr && (
               <div style={{ background: '#ffffff', padding: 14, borderRadius: 16, boxShadow: '0 8px 30px rgba(0,0,0,0.3)', display: 'inline-block' }}>
@@ -2830,7 +3129,6 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
       )}
     </div>
   );
-}
 }
 
 /* =========================================================================
@@ -2903,175 +3201,260 @@ function Plans({ t, user, setUser, go }) {
     }
   };
 
-  const currentPlan = billing?.plan || user?.plan || 'free';
-  const isExpired = !!billing?.isExpired;
-  const isPaid = currentPlan !== 'free' && !isExpired;
-  const daysLeft = billing?.daysLeft ?? 30;
+  const isAdmin = user?.role === 'admin' || String(user?.email || '').toLowerCase() === 'admin@gmail.com';
+  const currentPlan = isAdmin ? 'enterprise' : (billing?.plan || user?.plan || 'free');
+  const isExpired = isAdmin ? false : !!billing?.isExpired;
+  const isPaid = isAdmin ? true : (currentPlan !== 'free' && !isExpired);
+  const daysLeft = isAdmin ? 36500 : (billing?.daysLeft ?? 30);
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
-      {/* Current Plan Overview Card */}
-      <div className="card" style={{
-        background: isPaid
-          ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(0, 240, 255, 0.12) 100%)'
-          : isExpired
-          ? 'linear-gradient(135deg, rgba(244, 63, 94, 0.12) 0%, rgba(245, 158, 11, 0.12) 100%)'
-          : 'linear-gradient(135deg, rgba(0, 240, 255, 0.08) 0%, rgba(168, 85, 247, 0.12) 100%)',
-        border: `1px solid ${isPaid ? 'rgba(16, 185, 129, 0.35)' : isExpired ? 'rgba(244, 63, 94, 0.35)' : 'var(--bd)'}`
-      }}>
-        <div className="eyebrow" style={{ color: isPaid ? '#10b981' : isExpired ? '#f43f5e' : 'var(--a)' }}>
-          TRUSTLOOM SUBSCRIPTION LIFECYCLE
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <span className={`tag ${isPaid ? 'ok' : isExpired ? 'bad' : 'cyan'}`}>
-                {isPaid ? 'ACTIVE 30-DAY ACCESS' : isExpired ? 'EXPIRED — RENEWAL NEEDED' : 'STARTER ACCESS'}
-              </span>
-              <h2 style={{ margin: 0, fontSize: 22 }}>
-                Current Tier: <span className="grad">{currentPlan.toUpperCase()}</span>
-              </h2>
+      {isAdmin ? (
+        <>
+          {/* ROOT ADMINISTRATOR PERMANENT FULL ACCESS HERO BANNER */}
+          <div className="card" style={{
+            background: 'linear-gradient(135deg, rgba(0, 240, 255, 0.12) 0%, rgba(168, 85, 247, 0.15) 100%)',
+            border: '1.5px solid rgba(0, 240, 255, 0.4)',
+            borderRadius: 18,
+            boxShadow: '0 8px 32px rgba(0, 240, 255, 0.12)',
+            padding: '24px 28px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 14 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span className="tag cyan" style={{ fontWeight: 800, letterSpacing: '0.04em' }}>
+                    🛡️ ROOT ADMINISTRATOR · PERMANENT FULL ACCESS UNLOCKED
+                  </span>
+                  <span className="tag ok" style={{ fontWeight: 800 }}>
+                    LIFETIME ENTERPRISE TITANIUM
+                  </span>
+                </div>
+                <h2 style={{ margin: '4px 0 6px', fontSize: 24, fontWeight: 800 }}>
+                  Enterprise Titanium License · <span className="grad">Permanent Full Access Active</span>
+                </h2>
+                <p style={{ margin: 0, color: 'var(--tx-dim)', fontSize: 13.5, maxWidth: 820, lineHeight: 1.6 }}>
+                  As the platform root Administrator, you have permanent unrestricted access to all advanced investigative features, AI microservice inference pipelines, Sybil graph topological analysis, and automated quarantine systems. No subscriptions or renewals required.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <span className="tag purple" style={{ padding: '8px 16px', fontSize: 12.5, fontWeight: 800 }}>
+                  ⚡ UNLIMITED INFERENCES ACTIVE
+                </span>
+              </div>
             </div>
-            <p style={{ margin: 0, color: 'var(--tx-dim)', fontSize: 13.5 }}>
-              {isPaid
-                ? `Active Subscription: ${daysLeft} days remaining in current 30-day billing cycle.`
-                : isExpired
-                ? 'Your 30-day access has ended. Re-unlock now to regain unlimited scans, auto-quarantine, and deep forensic models.'
-                : 'Perpetual Starter Access (Standard account searches and baseline heuristics).'}
-            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginTop: 20 }}>
+              <div style={{ background: 'rgba(0, 240, 255, 0.05)', padding: 14, borderRadius: 12, border: '1px solid rgba(0, 240, 255, 0.2)' }}>
+                <div style={{ fontSize: 12, color: 'var(--tx-dim)', marginBottom: 2 }}>Access Status</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#00f0ff' }}>Permanent Lifetime (100% Unlocked)</div>
+              </div>
+              <div style={{ background: 'rgba(16, 185, 129, 0.05)', padding: 14, borderRadius: 12, border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                <div style={{ fontSize: 12, color: 'var(--tx-dim)', marginBottom: 2 }}>Neural Inference Rate</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#10b981' }}>Infinite Throughput (Uncapped)</div>
+              </div>
+              <div style={{ background: 'rgba(168, 85, 247, 0.05)', padding: 14, borderRadius: 12, border: '1px solid rgba(168, 85, 247, 0.2)' }}>
+                <div style={{ fontSize: 12, color: 'var(--tx-dim)', marginBottom: 2 }}>Platform Integrations</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#c084fc' }}>Meta Facebook, Instagram &amp; X Full Token Hub</div>
+              </div>
+              <div style={{ background: 'rgba(245, 158, 11, 0.05)', padding: 14, borderRadius: 12, border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                <div style={{ fontSize: 12, color: 'var(--tx-dim)', marginBottom: 2 }}>Dossier Generation</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#f59e0b' }}>Certified PDF Cryptographic Export</div>
+              </div>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {isPaid ? (
-              <>
-                <button className="btn sm success" disabled={busy} onClick={() => fastActivate(currentPlan === 'team' ? 'team' : 'pro')} title="Add an extra 30 days to your current active subscription">
-                  ⚡ Add 30 Days (Renew Now)
-                </button>
-                <button className="btn sm ghost" disabled={busy} onClick={simulateExpire} title="Simulate 1 month finishing to test the expiration and re-unlock flow">
-                  🧪 Simulate 1-Month Finish
-                </button>
-              </>
-            ) : (
-              <>
-                <button className="btn sm success" disabled={busy} onClick={() => fastActivate('pro')}>
-                  ⚡ Re-Unlock Pro (₹99 / 30 Days)
-                </button>
-                <button className="btn sm purple" disabled={busy} onClick={() => fastActivate('team')}>
-                  ⚡ Re-Unlock Team (₹249 / 30 Days)
-                </button>
-              </>
+
+          {/* Permanently Unlocked Advanced Investigation Suite for Admin */}
+          <div style={{ marginTop: 8 }}>
+            <AdvancedFeaturesSuite
+              t={t}
+              role="admin"
+              isPaid={true}
+              daysLeft={36500}
+              planName="ENTERPRISE TITANIUM"
+              go={go}
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Current Plan Overview Card for Non-Admin Roles */}
+          <div className="card" style={{
+            background: isPaid
+              ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(0, 240, 255, 0.12) 100%)'
+              : isExpired
+              ? 'linear-gradient(135deg, rgba(244, 63, 94, 0.12) 0%, rgba(245, 158, 11, 0.12) 100%)'
+              : 'linear-gradient(135deg, rgba(0, 240, 255, 0.08) 0%, rgba(168, 85, 247, 0.12) 100%)',
+            border: `1px solid ${isPaid ? 'rgba(16, 185, 129, 0.35)' : isExpired ? 'rgba(244, 63, 94, 0.35)' : 'var(--bd)'}`
+          }}>
+            <div className="eyebrow" style={{ color: isPaid ? '#10b981' : isExpired ? '#f43f5e' : 'var(--a)' }}>
+              TRUSTLOOM SUBSCRIPTION LIFECYCLE
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span className={`tag ${isPaid ? 'ok' : isExpired ? 'bad' : 'cyan'}`}>
+                    {isPaid ? 'ACTIVE 30-DAY ACCESS' : isExpired ? 'EXPIRED — RENEWAL NEEDED' : 'STARTER ACCESS'}
+                  </span>
+                  <h2 style={{ margin: 0, fontSize: 22 }}>
+                    Current Tier: <span className="grad">{currentPlan.toUpperCase()}</span>
+                  </h2>
+                </div>
+                <p style={{ margin: 0, color: 'var(--tx-dim)', fontSize: 13.5 }}>
+                  {isPaid
+                    ? `Active Subscription: ${daysLeft} days remaining in current 30-day billing cycle.`
+                    : isExpired
+                    ? 'Your 30-day access has ended. Re-unlock now to regain unlimited scans, auto-quarantine, and deep forensic models.'
+                    : 'Perpetual Starter Access (Standard account searches and baseline heuristics).'}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {isPaid ? (
+                  <>
+                    <button className="btn sm success" disabled={busy} onClick={() => fastActivate(currentPlan === 'team' ? 'team' : 'pro')} title="Add an extra 30 days to your current active subscription">
+                      ⚡ Add 30 Days (Renew Now)
+                    </button>
+                    <button className="btn sm ghost" disabled={busy} onClick={simulateExpire} title="Simulate 1 month finishing to test the expiration and re-unlock flow">
+                      🧪 Simulate 1-Month Finish
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button className="btn sm success" disabled={busy} onClick={() => fastActivate('pro')}>
+                      ⚡ Re-Unlock Pro (₹99 / 30 Days)
+                    </button>
+                    <button className="btn sm purple" disabled={busy} onClick={() => fastActivate('team')}>
+                      ⚡ Re-Unlock Team (₹249 / 30 Days)
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* 30-Day Subscription Progress Bar */}
+            {isPaid && (
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--tx-dim)', marginBottom: 6 }}>
+                  <span>Monthly Validity Countdown</span>
+                  <b style={{ color: '#10b981' }}>{daysLeft} of 30 Days Remaining</b>
+                </div>
+                <div style={{ width: '100%', height: 8, borderRadius: 99, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${Math.min(100, Math.max(5, (daysLeft / 30) * 100))}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #10b981, #00f0ff)',
+                    borderRadius: 99
+                  }} />
+                </div>
+              </div>
             )}
           </div>
-        </div>
 
-        {/* 30-Day Subscription Progress Bar */}
-        {isPaid && (
-          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--tx-dim)', marginBottom: 6 }}>
-              <span>Monthly Validity Countdown</span>
-              <b style={{ color: '#10b981' }}>{daysLeft} of 30 Days Remaining</b>
+          {note && (
+            <div className="card" style={{ padding: 14, color: isExpired ? '#fb7185' : 'var(--ok)', background: isExpired ? 'rgba(244,63,94,0.1)' : 'rgba(16,185,129,0.1)', border: `1px solid ${isExpired ? 'rgba(244,63,94,0.3)' : 'rgba(16,185,129,0.3)'}` }}>
+              {note}
             </div>
-            <div style={{ width: '100%', height: 8, borderRadius: 99, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
-              <div style={{
-                width: `${Math.min(100, Math.max(5, (daysLeft / 30) * 100))}%`,
-                height: '100%',
-                background: 'linear-gradient(90deg, #10b981, #00f0ff)',
-                borderRadius: 99
-              }} />
+          )}
+
+          {/* Plan Cards Grid for Non-Admin Roles */}
+          <div className="plan-grid" style={{ margin: 0 }}>
+            {tiers.map(tier => (
+              <div key={tier.id} className={`plan-card ${tier.featured ? 'featured' : ''}`}>
+                {tier.featured && <div className="plan-ribbon"><span className="tag ok">POPULAR</span></div>}
+                <span className={`tag ${tier.id === 'free' ? 'cyan' : tier.featured ? 'ok' : 'purple'}`} style={{ width: 'fit-content', marginBottom: 12 }}>
+                  {tier.name.toUpperCase()}
+                </span>
+                <h2 style={{ margin: '0 0 4px' }}>{tier.name}</h2>
+                <h1 className="grad" style={{ margin: '8px 0 14px', fontSize: 32 }}>{tier.price}</h1>
+                <p style={{ color: 'var(--tx-dim)', fontSize: 13, marginBottom: 18 }}>{tier.desc}</p>
+                <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px', display: 'grid', gap: 10, fontSize: 13 }}>
+                  {tier.features.map(f => (
+                    <li key={f}>✓ {f}</li>
+                  ))}
+                </ul>
+                <div style={{ marginTop: 'auto' }}>
+                  {tier.id === currentPlan ? (
+                    <button className="btn ghost" style={{ width: '100%' }} disabled>
+                      ✓ Current Active Plan
+                    </button>
+                  ) : (
+                    <button
+                      className="btn"
+                      style={{ width: '100%' }}
+                      onClick={() => {
+                        setPlan(tier.id);
+                        document.getElementById('checkout-box')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                    >
+                      Choose {tier.name}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* UPI Checkout & Submission Box for Non-Admin Roles */}
+          <div id="checkout-box" className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))' }}>
+            {/* UPI QR Display */}
+            <div className="card">
+              <div className="eyebrow">UPI SCAN &amp; PAY</div>
+              <h3>Scan QR Code to Subscribe</h3>
+              <p style={{ color: 'var(--tx-dim)', fontSize: 13 }}>
+                Selected: <b>{tiers.find(x => x.id === plan)?.name}</b> ({tiers.find(x => x.id === plan)?.price})
+              </p>
+              <div style={{ background: '#fff', borderRadius: 16, padding: 16, maxWidth: 260, margin: '14px auto', textAlign: 'center' }}>
+                <img src="/upi-payment-qr.png" alt="FamApp UPI QR" style={{ width: '100%', borderRadius: 10 }} />
+                <small style={{ color: '#333', fontWeight: 700, display: 'block', marginTop: 6 }}>UPI ID: famapp.trustloom@fam</small>
+              </div>
+              <small style={{ color: 'var(--tx-dim)', display: 'block', textAlign: 'center' }}>
+                Scan with any UPI app (PhonePe, Google Pay, Paytm, FamApp). Submit the 12-digit UTR reference below.
+              </small>
             </div>
+
+            {/* Submit Reference Form */}
+            <form className="card" onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
+              <div className="eyebrow">PAYMENT CONFIRMATION</div>
+              <h3>Submit Transaction Reference</h3>
+              <label>Selected Tier
+                <select value={plan} onChange={e => setPlan(e.target.value)}>
+                  <option value="pro">Pro Investigator — ₹99 / 30 days</option>
+                  <option value="team">Team Security Ops — ₹249 / 30 days</option>
+                </select>
+              </label>
+              <label>UPI Transaction ID / UTR Reference
+                <input
+                  required
+                  minLength={6}
+                  maxLength={80}
+                  placeholder="e.g. 331298457201 or UPI-REF-XXXX"
+                  value={ref}
+                  onChange={e => setRef(e.target.value)}
+                />
+              </label>
+              <button className="btn" type="submit" disabled={busy}>
+                {busy ? 'Submitting...' : 'Submit Reference for Verification'}
+              </button>
+              <small style={{ color: 'var(--tx-dim)', lineHeight: 1.6 }}>
+                Never enter your UPI PIN. The administrator verifies the submitted reference in bank records before approving subscription activation.
+              </small>
+            </form>
           </div>
-        )}
-      </div>
 
-      {note && (
-        <div className="card" style={{ padding: 14, color: isExpired ? '#fb7185' : 'var(--ok)', background: isExpired ? 'rgba(244,63,94,0.1)' : 'rgba(16,185,129,0.1)', border: `1px solid ${isExpired ? 'rgba(244,63,94,0.3)' : 'rgba(16,185,129,0.3)'}` }}>
-          {note}
-        </div>
-      )}
-
-      {/* Plan Cards Grid */}
-      <div className="plan-grid" style={{ margin: 0 }}>
-        {tiers.map(tier => (
-          <div key={tier.id} className={`plan-card ${tier.featured ? 'featured' : ''}`}>
-            {tier.featured && <div className="plan-ribbon"><span className="tag ok">POPULAR</span></div>}
-            <span className={`tag ${tier.id === 'free' ? 'cyan' : tier.featured ? 'ok' : 'purple'}`} style={{ width: 'fit-content', marginBottom: 12 }}>
-              {tier.name.toUpperCase()}
-            </span>
-            <h2 style={{ margin: '0 0 4px' }}>{tier.name}</h2>
-            <h1 className="grad" style={{ margin: '8px 0 14px', fontSize: 32 }}>{tier.price}</h1>
-            <p style={{ color: 'var(--tx-dim)', fontSize: 13, marginBottom: 18 }}>{tier.desc}</p>
-            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px', display: 'grid', gap: 10, fontSize: 13 }}>
-              {tier.features.map(f => (
-                <li key={f}>✓ {f}</li>
-              ))}
-            </ul>
-            <div style={{ marginTop: 'auto' }}>
-              {tier.id === currentPlan ? (
-                <button className="btn ghost" style={{ width: '100%' }} disabled>
-                  ✓ Current Active Plan
-                </button>
-              ) : (
-                <button
-                  className="btn"
-                  style={{ width: '100%' }}
-                  onClick={() => {
-                    setPlan(tier.id);
-                    document.getElementById('checkout-box')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                >
-                  Choose {tier.name}
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* UPI Checkout & Submission Box */}
-      <div id="checkout-box" className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))' }}>
-        {/* UPI QR Display */}
-        <div className="card">
-          <div className="eyebrow">UPI SCAN &amp; PAY</div>
-          <h3>Scan QR Code to Subscribe</h3>
-          <p style={{ color: 'var(--tx-dim)', fontSize: 13 }}>
-            Selected: <b>{tiers.find(x => x.id === plan)?.name}</b> ({tiers.find(x => x.id === plan)?.price})
-          </p>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 16, maxWidth: 260, margin: '14px auto', textAlign: 'center' }}>
-            <img src="/upi-payment-qr.png" alt="FamApp UPI QR" style={{ width: '100%', borderRadius: 10 }} />
-            <small style={{ color: '#333', fontWeight: 700, display: 'block', marginTop: 6 }}>UPI ID: famapp.trustloom@fam</small>
-          </div>
-          <small style={{ color: 'var(--tx-dim)', display: 'block', textAlign: 'center' }}>
-            Scan with any UPI app (PhonePe, Google Pay, Paytm, FamApp). Submit the 12-digit UTR reference below.
-          </small>
-        </div>
-
-        {/* Submit Reference Form */}
-        <form className="card" onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
-          <div className="eyebrow">PAYMENT CONFIRMATION</div>
-          <h3>Submit Transaction Reference</h3>
-          <label>Selected Tier
-            <select value={plan} onChange={e => setPlan(e.target.value)}>
-              <option value="pro">Pro Investigator — ₹10 / 30 days</option>
-              <option value="team">Team Security Ops — ₹249 / 30 days</option>
-            </select>
-          </label>
-          <label>UPI Transaction ID / UTR Reference
-            <input
-              required
-              minLength={6}
-              maxLength={80}
-              placeholder="e.g. 331298457201 or UPI-REF-XXXX"
-              value={ref}
-              onChange={e => setRef(e.target.value)}
+          {/* Feature Suite for Non-Admin Roles */}
+          <div style={{ marginTop: 8 }}>
+            <AdvancedFeaturesSuite
+              t={t}
+              role={user?.role || 'analyst'}
+              isPaid={isPaid}
+              daysLeft={daysLeft}
+              planName={currentPlan.toUpperCase()}
+              go={go}
+              onFastUnlock={fastActivate}
+              simulateExpire={simulateExpire}
             />
-          </label>
-          <button className="btn" type="submit" disabled={busy}>
-            {busy ? 'Submitting...' : 'Submit Reference for Verification'}
-          </button>
-          <small style={{ color: 'var(--tx-dim)', lineHeight: 1.6 }}>
-            Never enter your UPI PIN. The administrator verifies the submitted reference in bank records before approving subscription activation.
-          </small>
-        </form>
-      </div>
+          </div>
+        </>
+      )}
 
       {/* Payment History */}
       <div className="card">
@@ -3459,6 +3842,27 @@ export default function App() {
     }
   }, [s]);
 
+  // Seamless session sync: refresh user state if backend is reachable, never kick out active session
+  useEffect(() => {
+    if (!s?.token) return;
+    fetch('/api/me', { headers: { Authorization: 'Bearer ' + s.token } })
+      .then(r => {
+        if (r.ok) {
+          return r.json().then(freshUser => {
+            setS(prev => {
+              if (!prev) return null;
+              const next = { ...prev, user: freshUser };
+              localStorage.setItem('trustloom_session', JSON.stringify(next));
+              return next;
+            });
+          });
+        }
+      })
+      .catch(() => {
+        // Offline / disconnected grace: retain active local session
+      });
+  }, [s?.token]);
+
   // Live Meta & X integration status polling
   useEffect(() => {
     if (!s?.token) return;
@@ -3480,11 +3884,12 @@ export default function App() {
     return () => clearInterval(iv);
   }, [s?.token, tab]);
 
-  // Show sign up page one time on very first visit if user hasn't visited and not logged in
+  // Show sign up page one time on very first visit only if user hasn't signed in yet
   useEffect(() => {
     const hasVisited = localStorage.getItem('trustloom_registered_once');
+    const hasSignedIn = localStorage.getItem('trustloom_user_signed_in');
     const existingSession = localStorage.getItem('trustloom_session');
-    if (!hasVisited && !existingSession && !s) {
+    if (!hasVisited && !hasSignedIn && !existingSession && !s) {
       setAuthModal({ role: 'manager', mode: 'register' });
       localStorage.setItem('trustloom_registered_once', 'true');
     }
@@ -3531,6 +3936,8 @@ export default function App() {
               onDone={x => {
                 setS(x);
                 localStorage.setItem('trustloom_session', JSON.stringify(x));
+                localStorage.setItem('trustloom_user_signed_in', 'true');
+                localStorage.setItem('trustloom_registered_once', 'true');
                 setAuthModal(null);
                 cacheModel(x.token);
                 setTab('Home');
@@ -3579,7 +3986,9 @@ export default function App() {
     try {
       const res = await api('/auth/switch-role', s.token, { method: 'POST', body: { role: newRole } });
       if (res.ok) {
-        setS({ ...s, token: res.token, user: res.user });
+        const next = { ...s, token: res.token, user: res.user };
+        setS(next);
+        localStorage.setItem('trustloom_session', JSON.stringify(next));
         setTab('Account Search');
       }
     } catch (e) {
@@ -3614,6 +4023,7 @@ export default function App() {
     'Payment Reviews': PaymentReviews,
     'Audit Log': Audit,
     Users,
+    'Unlock Features': Plans,
     'Upgrade Plan': Plans,
     '404': NotFound
   }[tab] || Home;
@@ -3890,7 +4300,11 @@ export default function App() {
             <View
               t={s.token}
               user={s.user}
-              setUser={u => setS({ ...s, user: u })}
+              setUser={u => {
+                const next = { ...s, user: u };
+                setS(next);
+                localStorage.setItem('trustloom_session', JSON.stringify(next));
+              }}
               onBot={onBot}
               go={setTab}
               tab={tab}

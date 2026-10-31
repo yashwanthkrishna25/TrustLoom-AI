@@ -218,7 +218,8 @@ export function NavIcon({ name, size = 18, style = {} }) {
     case 'Users':
       return <Users {...iconProps} />;
     case 'Upgrade Plan':
-      return <Sparkles {...iconProps} />;
+    case 'Unlock Features':
+      return <Unlock {...iconProps} />;
     case 'Settings':
       return <Settings {...iconProps} />;
     default:

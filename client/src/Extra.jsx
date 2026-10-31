@@ -318,7 +318,10 @@ export function Chat() {
       const r = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: nm.slice(1) })
+        body: JSON.stringify({
+          message: t,
+          messages: nm.map(x => ({ role: x.role, content: x.content }))
+        })
       });
       const j = await r.json();
       setM([...nm, { role: 'assistant', content: j.text || 'No response generated.' }]);
