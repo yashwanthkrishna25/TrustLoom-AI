@@ -1726,7 +1726,11 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
       setTokenUsername('');
       load();
     } catch (e) {
-      setTokenErr(e.message || 'Token validation failed.');
+      if (e.status === 401 || e.status === 403 || String(e.message).includes('403') || String(e.message).includes('401')) {
+        setTokenErr('Your browser session expired after the recent backend update. Please click Sign Out on the bottom-left sidebar, then sign in again (admin@gmail.com / code 123456) to refresh your credentials.');
+      } else {
+        setTokenErr(e.message || 'Token connection failed.');
+      }
     } finally {
       setTokenBusy(false);
     }

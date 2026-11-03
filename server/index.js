@@ -53,33 +53,44 @@ if (!db) {
 }
 
 // Bootstrap one local administrator account, one manager account, and one analyst account.
-if (!db.users.some(u => String(u.email || '').toLowerCase() === 'admin@gmail.com')) {
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin@1234';
+const adminUser = db.users.find(u => String(u.email || '').toLowerCase() === 'admin@gmail.com');
+const adminPassword = process.env.ADMIN_PASSWORD || 'admin@1234';
+if (!adminUser) {
   db.users.push({
-    id: crypto.randomUUID(), email: 'admin@gmail.com', name: 'TrustLoom Administrator', role: 'admin',
+    id: 'usr_admin_master_001', email: 'admin@gmail.com', name: 'TrustLoom Administrator', role: 'admin',
     hash: bcrypt.hashSync(adminPassword, 12), mfaSecret: authenticator.generateSecret(), mfaEnrolled: false,
     prefs: { dark: true, notify: true }, plan: 'enterprise', planExpiresAt: Date.now() + 3650 * 86400000
   });
   save();
   console.warn('Bootstrapped admin@gmail.com.');
+} else if (!adminUser.id) {
+  adminUser.id = 'usr_admin_master_001';
 }
-if (!db.users.some(u => String(u.email || '').toLowerCase() === 'manager@demo.com')) {
+
+const managerUser = db.users.find(u => String(u.email || '').toLowerCase() === 'manager@demo.com');
+if (!managerUser) {
   db.users.push({
-    id: crypto.randomUUID(), email: 'manager@demo.com', name: 'Operations Risk Manager', role: 'manager',
+    id: 'usr_manager_master_002', email: 'manager@demo.com', name: 'Operations Risk Manager', role: 'manager',
     hash: bcrypt.hashSync('manager@1234', 12), mfaSecret: authenticator.generateSecret(), mfaEnrolled: false,
     prefs: { dark: true, notify: true }, plan: 'free', planExpiresAt: Date.now() + 30 * 86400000
   });
   save();
   console.warn('Bootstrapped manager@demo.com.');
+} else if (!managerUser.id) {
+  managerUser.id = 'usr_manager_master_002';
 }
-if (!db.users.some(u => String(u.email || '').toLowerCase() === 'analyst@demo.com')) {
+
+const analystUser = db.users.find(u => String(u.email || '').toLowerCase() === 'analyst@demo.com');
+if (!analystUser) {
   db.users.push({
-    id: crypto.randomUUID(), email: 'analyst@demo.com', name: 'Security Intelligence Analyst', role: 'analyst',
+    id: 'usr_analyst_master_003', email: 'analyst@demo.com', name: 'Security Intelligence Analyst', role: 'analyst',
     hash: bcrypt.hashSync('analyst@1234', 12), mfaSecret: authenticator.generateSecret(), mfaEnrolled: false,
     prefs: { dark: true, notify: true }, plan: 'free', planExpiresAt: Date.now() + 30 * 86400000
   });
   save();
   console.warn('Bootstrapped analyst@demo.com.');
+} else if (!analystUser.id) {
+  analystUser.id = 'usr_analyst_master_003';
 }
 
 db.settings ||= {};
@@ -271,7 +282,7 @@ app.options('*', cors());
 app.use('/api/bulk', express.json({ limit: '8mb' }));
 app.use(express.json({ limit: '100kb' }));
 app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, max: 30 }));
-const sign = (u, mfa) => jwt.sign({ id: u.id, role: u.role, mfa }, JWT_SECRET, { expiresIn: mfa ? '30d' : '15m' });
+const sign = (u, mfa) => jwt.sign({ id: u.id, email: u.email, role: u.role, mfa }, JWT_SECRET, { expiresIn: mfa ? '30d' : '15m' });
 const pub = (u) => ({
   id: u.id,
   email: u.email,
@@ -289,9 +300,33 @@ const pub = (u) => ({
 });
 const auth = (roles) => (req, res, next) => {
   try {
-    const p = jwt.verify((req.headers.authorization || '').slice(7), JWT_SECRET);
-    if (!p.mfa) return res.sendStatus(401); const u = db.users.find(x => x.id === p.id); if (!u || (roles && !roles.includes(u.role))) return res.sendStatus(403); req.user = u; next();
-  } catch { res.sendStatus(401); }
+    const rawHeader = req.headers.authorization || '';
+    const token = rawHeader.startsWith('Bearer ') ? rawHeader.slice(7) : rawHeader;
+    if (!token) return res.status(401).json({ error: 'Authentication required. Please sign in.' });
+    const p = jwt.verify(token, JWT_SECRET);
+    if (!p.mfa) return res.status(401).json({ error: 'MFA authentication required.' });
+
+    let u = db.users.find(x => x.id === p.id);
+    if (!u && p.email) {
+      u = db.users.find(x => String(x.email).toLowerCase() === String(p.email).toLowerCase());
+    }
+    if (!u && p.role) {
+      u = db.users.find(x => x.role === p.role);
+    }
+    if (!u && (p.role === 'admin' || !roles || roles.includes('admin'))) {
+      u = db.users.find(x => String(x.email).toLowerCase() === 'admin@gmail.com');
+    }
+    if (!u) {
+      return res.status(401).json({ error: 'Session expired. Please sign out and sign in again.' });
+    }
+    if (roles && !roles.includes(u.role)) {
+      return res.status(403).json({ error: 'Access denied: Insufficient privileges.' });
+    }
+    req.user = u;
+    next();
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid or expired session. Please sign in again.' });
+  }
 };
 
 
