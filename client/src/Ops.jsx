@@ -3,12 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Papa from 'papaparse';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { API_BASE } from './apiConfig.js';
 
 const H = t => ({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + t });
 const getQ = () => { try { return JSON.parse(localStorage.getItem('bl_queue') || '[]'); } catch { return []; } };
 const setQ = q => { try { localStorage.setItem('bl_queue', JSON.stringify(q)); } catch {} };
 
-export const cacheModel = t => fetch('/api/model', { headers: H(t) })
+export const cacheModel = t => fetch(API_BASE + '/model', { headers: H(t) })
   .then(r => r.json())
   .then(m => localStorage.setItem('bl_model', JSON.stringify(m)))
   .catch(() => {});
@@ -41,7 +42,7 @@ const local = a => {
 export async function analyzeSmart(t, a) {
   if (navigator.onLine) {
     try {
-      const r = await fetch('/api/analyze', { method: 'POST', headers: H(t), body: JSON.stringify(a) });
+      const r = await fetch(API_BASE + '/analyze', { method: 'POST', headers: H(t), body: JSON.stringify(a) });
       if (r.ok) return r.json();
     } catch {}
   }
@@ -76,7 +77,7 @@ export function NetBar({ t }) {
 
   useEffect(() => {
     if (!on) return;
-    fetch('/api/health')
+    fetch(API_BASE + '/health')
       .then(r => r.json())
       .then(j => setFb(j.firebase))
       .catch(() => {});
@@ -87,7 +88,7 @@ export function NetBar({ t }) {
       const left = [];
       for (const a of q) {
         try {
-          const r = await fetch('/api/analyze', { method: 'POST', headers: H(t), body: JSON.stringify(a) });
+          const r = await fetch(API_BASE + '/analyze', { method: 'POST', headers: H(t), body: JSON.stringify(a) });
           if (!r.ok) left.push(a);
         } catch {
           left.push(a);
@@ -239,7 +240,7 @@ export function Bulk({ t }) {
         };
       });
 
-      const res = await fetch('/api/ml/evaluate-dataset', {
+      const res = await fetch(API_BASE + '/ml/evaluate-dataset', {
         method: 'POST',
         headers: H(t),
         body: JSON.stringify({ rows: payloadRows, model: selectedModel })
@@ -698,7 +699,7 @@ export function Reports({ t }) {
   const [h, setH] = useState(null);
 
   useEffect(() => {
-    fetch('/api/history', { headers: H(t) })
+    fetch(API_BASE + '/history', { headers: H(t) })
       .then(r => r.json())
       .then(setH)
       .catch(() => setH([]));

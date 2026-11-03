@@ -18,6 +18,7 @@ import {
   FlaskConical,
   Zap
 } from './icons.jsx';
+import { API_BASE } from './apiConfig.js';
 
 const Rise = ({ children, d = 0 }) => (
   <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: d, duration: 0.5 }}>
@@ -315,7 +316,7 @@ export function Chat() {
     setQ('');
     setLd(true);
     try {
-      const r = await fetch('/api/chat', {
+      const r = await fetch(API_BASE + '/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -508,7 +509,7 @@ export function Chat() {
 export function Chain({ t }) {
   const [d, setD] = useState(null);
   useEffect(() => {
-    fetch('/api/audit', { headers: { Authorization: 'Bearer ' + t } }).then(r => r.json()).then(setD).catch(() => {});
+    fetch(API_BASE + '/audit', { headers: { Authorization: 'Bearer ' + t } }).then(r => r.json()).then(setD).catch(() => {});
   }, [t]);
   const bl = d ? [...d.entries].reverse().slice(-14) : [];
   return (
@@ -597,7 +598,7 @@ export function MLLab({ t }) {
 
   // Load active threshold
   useEffect(() => {
-    fetch('/api/ml/calibration', { headers: { Authorization: 'Bearer ' + t } })
+    fetch(API_BASE + '/ml/calibration', { headers: { Authorization: 'Bearer ' + t } })
       .then(r => r.json())
       .then(d => {
         if (d.threshold != null) setThreshold(d.threshold);
@@ -609,7 +610,7 @@ export function MLLab({ t }) {
     setThreshold(newThresh);
     setCalibrating(true);
     try {
-      await fetch('/api/ml/calibration', {
+      await fetch(API_BASE + '/ml/calibration', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
         body: JSON.stringify({ threshold: newThresh })
@@ -627,7 +628,7 @@ export function MLLab({ t }) {
     setRetraining(true);
     setRetrainResult(null);
     try {
-      const res = await fetch('/api/ml/retrain', {
+      const res = await fetch(API_BASE + '/ml/retrain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
         body: JSON.stringify({ sampleCount: 500 })
@@ -982,7 +983,7 @@ export function DeveloperKeys({ t }) {
   const [feedback, setFeedback] = useState('');
 
   const loadKeys = () => {
-    fetch('/api/developer/keys', { headers: { Authorization: 'Bearer ' + t } })
+    fetch(API_BASE + '/developer/keys', { headers: { Authorization: 'Bearer ' + t } })
       .then(r => r.json())
       .then(d => setKeys(d.keys || []))
       .catch(() => {});
@@ -995,7 +996,7 @@ export function DeveloperKeys({ t }) {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      await fetch('/api/developer/keys', {
+      await fetch(API_BASE + '/developer/keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
         body: JSON.stringify({ name: name.trim() })
@@ -1014,7 +1015,7 @@ export function DeveloperKeys({ t }) {
   const revokeKey = async id => {
     if (!confirm('Are you sure you want to revoke this API key? Apps using it will lose access immediately.')) return;
     try {
-      await fetch('/api/developer/keys/' + id, {
+      await fetch(API_BASE + '/developer/keys/' + id, {
         method: 'DELETE',
         headers: { Authorization: 'Bearer ' + t }
       });
@@ -1171,7 +1172,7 @@ export function ComplianceView({ t }) {
   const [feedback, setFeedback] = useState('');
 
   const loadStatus = () => {
-    fetch('/api/compliance/status', { headers: { Authorization: 'Bearer ' + t } })
+    fetch(API_BASE + '/compliance/status', { headers: { Authorization: 'Bearer ' + t } })
       .then(r => r.json())
       .then(setStatus)
       .catch(() => {});
@@ -1183,7 +1184,7 @@ export function ComplianceView({ t }) {
     if (!confirm('Execute GDPR 30-Day Data Retention Purge? Scanned tweet logs older than 30 days will be cryptographically purged.')) return;
     setPurging(true);
     try {
-      const res = await fetch('/api/compliance/purge', {
+      const res = await fetch(API_BASE + '/compliance/purge', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + t }
       }).then(r => r.json());

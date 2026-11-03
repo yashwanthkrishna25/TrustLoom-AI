@@ -263,6 +263,7 @@ app.use(cors({
   origin: true,
   credentials: true
 }));
+app.options('*', cors());
 app.use('/api/bulk', express.json({ limit: '8mb' }));
 app.use(express.json({ limit: '100kb' }));
 app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, max: 30 }));
@@ -2821,6 +2822,28 @@ app.post('/api/chat', rateLimit({ windowMs: 60000, max: 60 }), async (req, res) 
     return res.json({ text: fallback });
   }
 });
+app.get('/', (req, res) => {
+  res.json({
+    ok: true,
+    service: 'TrustLoom AI Backend',
+    status: 'online',
+    timestamp: new Date().toISOString(),
+    version: '2.8.0',
+    endpoints: {
+      health: '/api/health',
+      me: '/api/me',
+      intelligence: '/api/intelligence/search',
+      integrations: '/api/integrations',
+      model: '/api/model'
+    },
+    message: 'TrustLoom AI Backend is running successfully on Render.'
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ ok: true, status: 'healthy', timestamp: new Date().toISOString() });
+});
+
 app.get('/api/health', (q, r) => r.json({ ok: true, firebase: !!fsdb, storage: fsdb ? 'firestore+encrypted-local' : 'encrypted-local', roles: ['admin'] }));
 app.get('/api/model', auth(), (q, r) => r.json(model));
 app.get('/api/history', auth(), (req, res) => res.json(db.scans.filter(x => req.user.role !== 'manager' || x.user === req.user.email).slice(0, 300)));

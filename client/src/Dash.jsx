@@ -6,7 +6,9 @@ import {
   AreaChart, Area, PieChart, Pie
 } from 'recharts';
 
-const api = (p, t, o = {}) => fetch('/api' + p, {
+import { API_BASE } from './apiConfig.js';
+
+const api = (p, t, o = {}) => fetch(API_BASE + p, {
   ...o,
   headers: {
     'Content-Type': 'application/json',

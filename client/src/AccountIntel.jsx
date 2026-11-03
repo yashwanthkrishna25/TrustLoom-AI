@@ -46,7 +46,13 @@ import {
   Bell
 } from './icons.jsx';
 
-const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/+$/, '') : '') + '/api';
+const API_BASE = (
+  typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL
+    ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/+$/, '')
+    : (typeof window !== 'undefined' && (window.location.hostname.endsWith('vercel.app') || window.location.hostname === 'trust-loom-ai.vercel.app')
+        ? 'https://trustloom-ai-1.onrender.com'
+        : '')
+) + '/api';
 
 const api = (p, t, o = {}) => fetch(API_BASE + p, {
   ...o,

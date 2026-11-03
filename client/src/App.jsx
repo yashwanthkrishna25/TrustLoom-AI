@@ -41,7 +41,13 @@ import {
   Facebook
 } from './icons.jsx';
 
-const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/+$/, '') : '') + '/api';
+const API_BASE = (
+  typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL
+    ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/+$/, '')
+    : (typeof window !== 'undefined' && (window.location.hostname.endsWith('vercel.app') || window.location.hostname === 'trust-loom-ai.vercel.app')
+        ? 'https://trustloom-ai-1.onrender.com'
+        : '')
+) + '/api';
 
 const api = (p, t, o = {}) => fetch(API_BASE + p, {
   ...o,
@@ -1463,7 +1469,7 @@ function Audit({ t }) {
   }, [t]);
 
   const dl = async () => {
-    const r = await fetch('/api/audit.csv', { headers: { Authorization: 'Bearer ' + t } });
+    const r = await fetch(API_BASE + '/audit.csv', { headers: { Authorization: 'Bearer ' + t } });
     Object.assign(document.createElement('a'), {
       href: URL.createObjectURL(await r.blob()),
       download: 'trustloom-audit-ledger.csv'
@@ -3803,7 +3809,14 @@ export default function App() {
     }
   });
   const [authModal, setAuthModal] = useState(null);
-  const [tab, setTab] = useState('Home');
+  const [tab, setTab] = useState(() => {
+    const path = window.location.pathname.replace(/^\/+/, '').replace(/\/+$/, '');
+    if (!path || path === '' || path === 'index.html') return 'Home';
+    // Known paths that should not trigger 404
+    const knownPaths = ['home', 'login', 'register', 'signin', 'signup'];
+    if (knownPaths.includes(path.toLowerCase())) return 'Home';
+    return '404';
+  });
   const [dark, setDark] = useState(true);
   const [toast, setToast] = useState(null);
   const [mobileDrawer, setMobileDrawer] = useState(false);
@@ -3845,7 +3858,7 @@ export default function App() {
   // Seamless session sync: refresh user state if backend is reachable, never kick out active session
   useEffect(() => {
     if (!s?.token) return;
-    fetch('/api/me', { headers: { Authorization: 'Bearer ' + s.token } })
+    fetch(API_BASE + '/me', { headers: { Authorization: 'Bearer ' + s.token } })
       .then(r => {
         if (r.ok) {
           return r.json().then(freshUser => {
@@ -3867,7 +3880,7 @@ export default function App() {
   useEffect(() => {
     if (!s?.token) return;
     const fetchIntegrations = () => {
-      fetch('/api/integrations', { headers: { Authorization: 'Bearer ' + s.token } })
+      fetch(API_BASE + '/integrations', { headers: { Authorization: 'Bearer ' + s.token } })
         .then(r => r.json())
         .then(j => {
           if (Array.isArray(j.integrations)) {
@@ -3902,9 +3915,14 @@ export default function App() {
     }
   };
 
-  // If network dropped, display animated 404 / Offline screen with caveman illustration (Images 2, 3, 4)
+  // If network dropped, display animated 404 / Offline screen with 404-Error-Page-main
   if (isOffline) {
-    return <NotFound onGoHome={() => { setIsOffline(false); setTab('Home'); }} reason="offline" />;
+    return <NotFound onGoHome={() => { setIsOffline(false); setTab('Home'); window.history.replaceState(null, '', '/'); }} reason="offline" />;
+  }
+
+  // 404 screen when navigating to an unknown route
+  if (tab === '404') {
+    return <NotFound onGoHome={() => { setTab('Home'); window.history.replaceState(null, '', '/'); }} reason="not_found" />;
   }
 
   if (!s) {
@@ -4310,6 +4328,7 @@ export default function App() {
               tab={tab}
               dark={dark}
               setDark={setDark}
+              onGoHome={() => { setTab('Home'); window.history.replaceState(null, '', '/'); }}
               switchRole={switchRole}
             />
           </motion.div>
