@@ -1931,6 +1931,22 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
     }
   };
 
+  const resetRedirectToRender = async () => {
+    setSavingTunnel(true);
+    setMsg('');
+    try {
+      const res = await api('/settings/tunnel', t, { method: 'POST', body: { resetToRender: true } });
+      setTunnelInfo(res);
+      setCustomTunnel('https://trustloom-ai-1.onrender.com');
+      setMsg('✅ Callbacks updated to Live Render backend (https://trustloom-ai-1.onrender.com)!');
+      setTimeout(() => setMsg(''), 6000);
+    } catch (e) {
+      setMsg('❌ ' + (e.message || 'Failed to update redirect URL.'));
+    } finally {
+      setSavingTunnel(false);
+    }
+  };
+
   const copyText = (txt, id) => {
     if (!txt) return;
     navigator.clipboard?.writeText(txt);
@@ -2031,9 +2047,15 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
   const instagram = integrations.find(i => i.provider === 'instagram') || { connected: false };
   const x = integrations.find(i => i.provider === 'x') || { connected: false };
 
-  const metaRedirectUri = tunnelInfo?.metaRedirectUri || `http://localhost:5050/api/integrations/meta/callback`;
-  const igRedirectUri = tunnelInfo?.instagramRedirectUri || `http://localhost:5050/api/integrations/instagram/callback`;
-  const xRedirectUri = tunnelInfo?.xRedirectUri || `http://localhost:5050/api/integrations/x/callback`;
+  const metaRedirectUri = (tunnelInfo?.metaRedirectUri && !tunnelInfo.metaRedirectUri.includes('ngrok'))
+    ? tunnelInfo.metaRedirectUri
+    : `https://trustloom-ai-1.onrender.com/api/integrations/meta/callback`;
+  const igRedirectUri = (tunnelInfo?.instagramRedirectUri && !tunnelInfo.instagramRedirectUri.includes('ngrok'))
+    ? tunnelInfo.instagramRedirectUri
+    : `https://trustloom-ai-1.onrender.com/api/integrations/instagram/callback`;
+  const xRedirectUri = (tunnelInfo?.xRedirectUri && !tunnelInfo.xRedirectUri.includes('ngrok'))
+    ? tunnelInfo.xRedirectUri
+    : `https://trustloom-ai-1.onrender.com/api/integrations/x/callback`;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -2283,14 +2305,23 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
                 Official Meta and X OAuth dialogues require exact redirect URI matching. If using Ngrok or Cloudflare tunnel, enter your public URL below to update all OAuth endpoints dynamically:
               </p>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                className="btn sm"
+                style={{ background: 'linear-gradient(90deg, #10b981, #06b6d4)', color: '#000', fontWeight: 800 }}
+                onClick={resetRedirectToRender}
+                disabled={savingTunnel}
+                title="Set callback URIs to https://trustloom-ai-1.onrender.com"
+              >
+                ✓ Use Live Render Backend
+              </button>
               <button
                 className="btn sm ghost"
                 onClick={resetRedirectToLocalhost}
                 disabled={savingTunnel}
                 title="Reset callback URIs to http://localhost:5050"
               >
-                Reset Callbacks to Localhost Mode
+                Localhost Mode
               </button>
             </div>
           </div>
@@ -3810,11 +3841,9 @@ export default function App() {
   });
   const [authModal, setAuthModal] = useState(null);
   const [tab, setTab] = useState(() => {
-    const path = window.location.pathname.replace(/^\/+/, '').replace(/\/+$/, '');
-    if (!path || path === '' || path === 'index.html') return 'Home';
-    // Known paths that should not trigger 404
-    const knownPaths = ['home', 'login', 'register', 'signin', 'signup'];
-    if (knownPaths.includes(path.toLowerCase())) return 'Home';
+    const path = window.location.pathname.replace(/^\/+/, '').replace(/\/+$/, '').toLowerCase();
+    if (!path || path === '' || path === 'index.html' || path === 'home' || path === 'login' || path === 'register' || path === 'signin' || path === 'signup') return 'Home';
+    if (path === 'offline') return 'offline';
     return '404';
   });
   const [dark, setDark] = useState(true);
@@ -3915,8 +3944,8 @@ export default function App() {
     }
   };
 
-  // If network dropped, display animated 404 / Offline screen with 404-Error-Page-main
-  if (isOffline) {
+  // If network dropped or visiting /offline, display animated 404 / Offline screen with 404-Error-Page-main
+  if (isOffline || tab === 'offline') {
     return <NotFound onGoHome={() => { setIsOffline(false); setTab('Home'); window.history.replaceState(null, '', '/'); }} reason="offline" />;
   }
 

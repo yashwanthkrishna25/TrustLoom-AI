@@ -83,9 +83,9 @@ if (!db.users.some(u => String(u.email || '').toLowerCase() === 'analyst@demo.co
 }
 
 db.settings ||= {};
-if (db.settings.publicUrl && db.settings.publicUrl.includes('trustloom-demo.ngrok-free.app')) {
+if (db.settings.publicUrl && (db.settings.publicUrl.includes('ngrok') || db.settings.publicUrl.includes('bernardine') || db.settings.publicUrl.includes('trustloom-demo'))) {
   delete db.settings.publicUrl;
-  db.settings.useLocalhostRedirect = true;
+  db.settings.useLocalhostRedirect = false;
   save();
 }
 db.integrations ||= {};
@@ -303,28 +303,33 @@ const pruneOAuthStates = () => {
 const META_VERSION = process.env.META_GRAPH_VERSION || 'v26.0';
 
 const getBaseUrl = (req) => {
-  if (db.settings?.publicUrl) return db.settings.publicUrl.replace(/\/+$/, '');
-  if (process.env.NGROK_URL) return process.env.NGROK_URL.replace(/\/+$/, '');
-  if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL.replace(/\/+$/, '');
+  if (db.settings?.publicUrl && !db.settings.publicUrl.includes('ngrok')) {
+    return db.settings.publicUrl.replace(/\/+$/, '');
+  }
+  if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL.replace(/\/+$/, '');
+  if (process.env.PUBLIC_URL && !process.env.PUBLIC_URL.includes('ngrok')) return process.env.PUBLIC_URL.replace(/\/+$/, '');
   if (req) {
     const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
     const host = req.headers['x-forwarded-host'] || req.headers.host;
-    if (host && (host.includes('ngrok') || host.includes('.loca.lt') || host.includes('.trycloudflare.com'))) {
+    if (host && (host.includes('render.com') || host.includes('vercel.app') || host.includes('.loca.lt') || host.includes('.trycloudflare.com'))) {
       return `${proto}://${host}`;
     }
+  }
+  if (process.env.RENDER || process.env.NODE_ENV === 'production' || (req && req.headers?.host?.includes('render.com'))) {
+    return 'https://trustloom-ai-1.onrender.com';
   }
   return `http://localhost:${PORT}`;
 };
 
 const getRedirectUri = (provider, req) => {
-  // If administrator explicitly enabled localhost mode in UI Settings
-  if (db.settings?.useLocalhostRedirect) {
-    return `http://localhost:${PORT}/api/integrations/${provider}/callback`;
+  // If explicitly configured in db.settings with a valid (non-ngrok) URL
+  if (db.settings?.publicUrl && !db.settings.publicUrl.includes('ngrok')) {
+    return `${db.settings.publicUrl.replace(/\/+$/, '')}/api/integrations/${provider}/callback`;
   }
 
-  // If administrator configured a custom public tunnel URL in UI Settings
-  if (db.settings?.publicUrl) {
-    return `${db.settings.publicUrl.replace(/\/+$/, '')}/api/integrations/${provider}/callback`;
+  // If administrator explicitly enabled localhost mode in UI Settings (local dev only)
+  if (db.settings?.useLocalhostRedirect && !process.env.RENDER) {
+    return `http://localhost:${PORT}/api/integrations/${provider}/callback`;
   }
 
   const configured = {
@@ -333,11 +338,11 @@ const getRedirectUri = (provider, req) => {
     x: process.env.X_REDIRECT_URI
   }[provider];
 
-  // An explicitly configured provider callback is authoritative. It must exactly
-  // match the callback registered in that provider's developer console.
-  if (configured && configured.trim()) return configured.trim();
+  // An explicitly configured provider callback is authoritative, UNLESS it's an obsolete offline ngrok
+  if (configured && configured.trim() && !configured.includes('ngrok')) return configured.trim();
 
-  return `${getBaseUrl(req)}/api/integrations/${provider}/callback`;
+  const base = getBaseUrl(req);
+  return `${base}/api/integrations/${provider}/callback`;
 };
 
 
@@ -1842,9 +1847,12 @@ app.get('/api/settings/tunnel', auth(), (req, res) => {
 });
 
 app.post('/api/settings/tunnel', auth(), (req, res) => {
-  const { publicUrl, resetToLocalhost } = req.body || {};
+  const { publicUrl, resetToLocalhost, resetToRender } = req.body || {};
   db.settings ||= {};
-  if (resetToLocalhost) {
+  if (resetToRender) {
+    db.settings.publicUrl = 'https://trustloom-ai-1.onrender.com';
+    db.settings.useLocalhostRedirect = false;
+  } else if (resetToLocalhost) {
     delete db.settings.publicUrl;
     db.settings.useLocalhostRedirect = true;
   } else if (publicUrl && typeof publicUrl === 'string') {
@@ -1856,7 +1864,7 @@ app.post('/api/settings/tunnel', auth(), (req, res) => {
     db.settings.useLocalhostRedirect = false;
   } else {
     delete db.settings.publicUrl;
-    db.settings.useLocalhostRedirect = true;
+    db.settings.useLocalhostRedirect = false;
   }
   save();
   const base = getBaseUrl(req);

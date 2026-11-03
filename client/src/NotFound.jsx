@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { API_BASE } from './apiConfig.js';
 
 export default function NotFound({ onGoHome, reason = 'not_found' }) {
   const [isOffline, setIsOffline] = useState(!navigator.onLine || reason === 'offline');
@@ -27,7 +28,7 @@ export default function NotFound({ onGoHome, reason = 'not_found' }) {
     if (isOffline) {
       poller = setInterval(() => {
         if (navigator.onLine) {
-          fetch('/api/health', { cache: 'no-store' })
+          fetch(API_BASE + '/health', { cache: 'no-store' })
             .then(res => {
               if (res.ok) handleOnlineResume();
             })
@@ -49,7 +50,7 @@ export default function NotFound({ onGoHome, reason = 'not_found' }) {
     if (e) e.preventDefault();
     setChecking(true);
     if (navigator.onLine) {
-      fetch('/api/health', { cache: 'no-store' })
+      fetch(API_BASE + '/health', { cache: 'no-store' })
         .then(res => {
           setChecking(false);
           if (res.ok) {
