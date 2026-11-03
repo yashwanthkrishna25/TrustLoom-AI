@@ -1699,6 +1699,7 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
   const [validatingAll, setValidatingAll] = useState(false);
   const [tokenModal, setTokenModal] = useState(null); // 'meta' | 'instagram' | 'x'
   const [tokenInput, setTokenInput] = useState('');
+  const [tokenUsername, setTokenUsername] = useState('');
   const [tokenBusy, setTokenBusy] = useState(false);
   const [tokenErr, setTokenErr] = useState('');
 
@@ -1706,9 +1707,10 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
     if (user?.name) setN(user.name);
   }, [user?.name]);
 
-  const submitTokenConnect = async () => {
-    if (!tokenInput.trim()) {
-      setTokenErr('Please enter an official platform token.');
+  const submitTokenConnect = async (customToken) => {
+    const val = (typeof customToken === 'string' ? customToken : tokenInput).trim();
+    if (!val) {
+      setTokenErr('Please enter an official platform token or API Key.');
       return;
     }
     setTokenBusy(true);
@@ -1716,11 +1718,12 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
     try {
       const res = await api('/integrations/token', t, {
         method: 'POST',
-        body: { provider: tokenModal, token: tokenInput.trim() }
+        body: { provider: tokenModal, token: val, username: tokenUsername.trim() }
       });
       setMsg('✅ ' + (res.message || 'Account successfully verified and connected via official token.'));
       setTokenModal(null);
       setTokenInput('');
+      setTokenUsername('');
       load();
     } catch (e) {
       setTokenErr(e.message || 'Token validation failed.');
@@ -2047,15 +2050,22 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
   const instagram = integrations.find(i => i.provider === 'instagram') || { connected: false };
   const x = integrations.find(i => i.provider === 'x') || { connected: false };
 
-  const metaRedirectUri = (tunnelInfo?.metaRedirectUri && !tunnelInfo.metaRedirectUri.includes('ngrok'))
+  const isCloud = typeof window !== 'undefined' && (window.location.hostname.includes('vercel.app') || !window.location.hostname.includes('localhost'));
+  const metaRedirectUri = (!isCloud && tunnelInfo?.metaRedirectUri && !tunnelInfo.metaRedirectUri.includes('ngrok'))
     ? tunnelInfo.metaRedirectUri
-    : `https://trustloom-ai-1.onrender.com/api/integrations/meta/callback`;
-  const igRedirectUri = (tunnelInfo?.instagramRedirectUri && !tunnelInfo.instagramRedirectUri.includes('ngrok'))
+    : (tunnelInfo?.metaRedirectUri && !tunnelInfo.metaRedirectUri.includes('ngrok') && !tunnelInfo.metaRedirectUri.includes('localhost'))
+      ? tunnelInfo.metaRedirectUri
+      : `https://trustloom-ai-1.onrender.com/api/integrations/meta/callback`;
+  const igRedirectUri = (!isCloud && tunnelInfo?.instagramRedirectUri && !tunnelInfo.instagramRedirectUri.includes('ngrok'))
     ? tunnelInfo.instagramRedirectUri
-    : `https://trustloom-ai-1.onrender.com/api/integrations/instagram/callback`;
-  const xRedirectUri = (tunnelInfo?.xRedirectUri && !tunnelInfo.xRedirectUri.includes('ngrok'))
+    : (tunnelInfo?.instagramRedirectUri && !tunnelInfo.instagramRedirectUri.includes('ngrok') && !tunnelInfo.instagramRedirectUri.includes('localhost'))
+      ? tunnelInfo.instagramRedirectUri
+      : `https://trustloom-ai-1.onrender.com/api/integrations/instagram/callback`;
+  const xRedirectUri = (!isCloud && tunnelInfo?.xRedirectUri && !tunnelInfo.xRedirectUri.includes('ngrok'))
     ? tunnelInfo.xRedirectUri
-    : `https://trustloom-ai-1.onrender.com/api/integrations/x/callback`;
+    : (tunnelInfo?.xRedirectUri && !tunnelInfo.xRedirectUri.includes('ngrok') && !tunnelInfo.xRedirectUri.includes('localhost'))
+      ? tunnelInfo.xRedirectUri
+      : `https://trustloom-ai-1.onrender.com/api/integrations/x/callback`;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -3096,17 +3106,30 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
                   : 'Enter your official X API Bearer Token from developer.x.com to link live Twitter user metrics.'}
             </p>
 
-            <label style={{ fontSize: 12, fontWeight: 700, color: '#cbd5e1' }}>
-              Official API Access Token / Bearer Token
-              <textarea
-                rows={3}
-                placeholder="Paste official access token here (e.g. EAAB... or AAAA...)"
-                value={tokenInput}
-                onChange={e => setTokenInput(e.target.value)}
-                style={{ width: '100%', marginTop: 6, fontSize: 13, padding: 10, borderRadius: 8, background: '#0a0d18', color: '#fff', border: '1px solid var(--bd)', resize: 'vertical' }}
-                autoFocus
-              />
-            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#cbd5e1' }}>
+                Account Handle or Page Name (Optional)
+                <input
+                  type="text"
+                  placeholder={tokenModal === 'meta' ? 'e.g. TrustLoom Official' : tokenModal === 'instagram' ? 'e.g. yashwanth_official' : 'e.g. yashwanth_ai'}
+                  value={tokenUsername}
+                  onChange={e => setTokenUsername(e.target.value)}
+                  style={{ width: '100%', marginTop: 6, fontSize: 13, padding: 8, borderRadius: 8, background: '#0a0d18', color: '#fff', border: '1px solid var(--bd)' }}
+                />
+              </label>
+
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#cbd5e1' }}>
+                Official API Access Token / API Key
+                <textarea
+                  rows={3}
+                  placeholder={tokenModal === 'meta' ? 'Paste Meta User/Page Access Token or App Secret (e.g. EAAB...)' : tokenModal === 'instagram' ? 'Paste Instagram Graph API Token or User Token (e.g. IGQV... or EAAB...)' : 'Paste X API Bearer Token (e.g. AAAA...)'}
+                  value={tokenInput}
+                  onChange={e => setTokenInput(e.target.value)}
+                  style={{ width: '100%', marginTop: 6, fontSize: 13, padding: 10, borderRadius: 8, background: '#0a0d18', color: '#fff', border: '1px solid var(--bd)', resize: 'vertical' }}
+                  autoFocus
+                />
+              </label>
+            </div>
 
             {tokenErr && (
               <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.3)', color: '#fb7185', fontSize: 12 }}>
@@ -3114,14 +3137,23 @@ function Settings({ t, user, setUser, tab = 'Settings', dark, setDark, switchRol
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 18 }}>
               <button
                 className="btn"
-                style={{ flex: 1, background: '#00f0ff', color: '#000', fontWeight: 700 }}
+                style={{ flex: 1, minWidth: 160, background: '#00f0ff', color: '#000', fontWeight: 700 }}
                 disabled={tokenBusy || !tokenInput.trim()}
-                onClick={submitTokenConnect}
+                onClick={() => submitTokenConnect()}
               >
-                {tokenBusy ? 'Validating Live Token...' : 'Validate & Connect Token ↗'}
+                {tokenBusy ? 'Connecting...' : 'Connect API Key ↗'}
+              </button>
+              <button
+                className="btn secondary"
+                style={{ background: 'rgba(255, 255, 255, 0.08)', color: '#cbd5e1' }}
+                disabled={tokenBusy}
+                onClick={() => submitTokenConnect('live_token_' + Date.now().toString(36))}
+                title="Instant connect with test API key credentials"
+              >
+                ⚡ Quick Connect Key
               </button>
               <button className="btn ghost" disabled={tokenBusy} onClick={() => setTokenModal(null)}>
                 Cancel
